@@ -1,14 +1,39 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { settingsApi } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/toast'
 import { useHasRole } from '@/hooks/useAuth'
-import { Pencil, Trash2, X, Check } from 'lucide-react'
+import { Pencil, Trash2, X, Check, Upload } from 'lucide-react'
+
+const INDIAN_STATES = [
+  { code: '01', name: 'Jammu & Kashmir' }, { code: '02', name: 'Himachal Pradesh' },
+  { code: '03', name: 'Punjab' }, { code: '04', name: 'Chandigarh' },
+  { code: '05', name: 'Uttarakhand' }, { code: '06', name: 'Haryana' },
+  { code: '07', name: 'Delhi' }, { code: '08', name: 'Rajasthan' },
+  { code: '09', name: 'Uttar Pradesh' }, { code: '10', name: 'Bihar' },
+  { code: '11', name: 'Sikkim' }, { code: '12', name: 'Arunachal Pradesh' },
+  { code: '13', name: 'Nagaland' }, { code: '14', name: 'Manipur' },
+  { code: '15', name: 'Mizoram' }, { code: '16', name: 'Tripura' },
+  { code: '17', name: 'Meghalaya' }, { code: '18', name: 'Assam' },
+  { code: '19', name: 'West Bengal' }, { code: '20', name: 'Jharkhand' },
+  { code: '21', name: 'Odisha' }, { code: '22', name: 'Chhattisgarh' },
+  { code: '23', name: 'Madhya Pradesh' }, { code: '24', name: 'Gujarat' },
+  { code: '25', name: 'Daman & Diu' }, { code: '26', name: 'Dadra & Nagar Haveli' },
+  { code: '27', name: 'Maharashtra' }, { code: '28', name: 'Andhra Pradesh (Old)' },
+  { code: '29', name: 'Karnataka' }, { code: '30', name: 'Goa' },
+  { code: '31', name: 'Lakshadweep' }, { code: '32', name: 'Kerala' },
+  { code: '33', name: 'Tamil Nadu' }, { code: '34', name: 'Puducherry' },
+  { code: '35', name: 'Andaman & Nicobar' }, { code: '36', name: 'Telangana' },
+  { code: '37', name: 'Andhra Pradesh' }, { code: '38', name: 'Ladakh' },
+]
+
+const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/
 
 const TABS = ['Company', 'Users', 'Customers', 'Products']
 
@@ -37,15 +62,21 @@ export default function Settings() {
 const COMPANY_DEFAULTS = {
   name: '', gstin: '', state_code: '', address: '', pan: '',
   phone: '', email: '', cin: '', bank_name: '', bank_account: '',
-  bank_ifsc: '', upi_id: '',
+  bank_ifsc: '', upi_id: '', logo_url: '',
 }
 
 function CompanySettings({ isAdmin }) {
   const { toast } = useToast()
   const qc = useQueryClient()
+  const fileRef = useRef(null)
+  const [logoPreview, setLogoPreview] = useState(null)
+  const [uploading, setUploading] = useState(false)
+
   const { data } = useQuery({ queryKey: ['company-settings'], queryFn: settingsApi.getCompany })
-  // Merge defaults so required fields are never undefined/omitted from the submission
-  const { register, handleSubmit } = useForm({ values: { ...COMPANY_DEFAULTS, ...(data ?? {}) } })
+
+  const { register, handleSubmit, setValue, formState: { errors, isDirty } } = useForm({
+    values: { ...COMPANY_DEFAULTS, ...(data ?? {}) },
+  })
 
   const mutation = useMutation({
     mutationFn: settingsApi.updateCompany,
@@ -53,24 +84,133 @@ function CompanySettings({ isAdmin }) {
     onError: (e) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
   })
 
+  async function handleLogoUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const ext = file.name.split('.').pop()
+      const path = `logo-${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from('company-assets').upload(path, file, { upsert: true })
+      if (error) throw error
+      const { data: urlData } = supabase.storage.from('company-assets').getPublicUrl(path)
+      setValue('logo_url', urlData.publicUrl, { shouldDirty: true })
+      setLogoPreview(urlData.publicUrl)
+      toast({ title: 'Logo uploaded' })
+    } catch (err) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' })
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const currentLogo = logoPreview ?? data?.logo_url
+
   return (
     <Card className="max-w-2xl">
       <CardHeader><CardTitle>Company Details</CardTitle></CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="grid grid-cols-2 gap-4">
-          {[['name','Company Name'],['gstin','GSTIN'],['state_code','State Code'],['pan','PAN'],['phone','Phone'],['email','Email'],['cin','CIN'],['bank_name','Bank Name'],['bank_account','Bank Account No.'],['bank_ifsc','IFSC Code'],['upi_id','UPI ID']].map(([field, label]) => (
-            <div key={field} className="space-y-1.5">
-              <Label>{label}</Label>
-              <Input {...register(field)} disabled={!isAdmin} />
-            </div>
-          ))}
-          <div className="col-span-2 space-y-1.5">
-            <Label>Address</Label>
-            <textarea {...register('address')} rows={3} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" disabled={!isAdmin} />
+      <CardContent className="pb-0">
+        {/* Unsaved changes banner */}
+        {isDirty && (
+          <div className="mb-4 rounded-md bg-yellow-50 border border-yellow-200 px-4 py-2 text-sm text-yellow-800">
+            You have unsaved changes
           </div>
+        )}
+
+        <form onSubmit={handleSubmit((d) => mutation.mutate(d))}>
+          <div className="grid grid-cols-2 gap-4">
+
+            {/* Logo upload */}
+            <div className="col-span-2 space-y-1.5">
+              <Label>Company Logo</Label>
+              <div className="flex items-center gap-4">
+                {currentLogo ? (
+                  <img src={currentLogo} alt="Logo" className="h-16 w-auto rounded border object-contain" />
+                ) : (
+                  <div className="h-16 w-24 rounded border border-dashed border-muted-foreground/40 flex items-center justify-center text-xs text-muted-foreground">No logo</div>
+                )}
+                {isAdmin && (
+                  <>
+                    <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => fileRef.current?.click()}>
+                      <Upload className="h-3 w-3 mr-1" />{uploading ? 'Uploading…' : 'Upload Logo'}
+                    </Button>
+                    <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                  </>
+                )}
+              </div>
+              <input type="hidden" {...register('logo_url')} />
+            </div>
+
+            {/* Company Name */}
+            <div className="space-y-1.5">
+              <Label>Company Name <span className="text-red-500">*</span></Label>
+              <Input {...register('name', { required: 'Required' })} disabled={!isAdmin} />
+              {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
+            </div>
+
+            {/* GSTIN */}
+            <div className="space-y-1.5">
+              <Label>GSTIN <span className="text-red-500">*</span></Label>
+              <Input
+                {...register('gstin', {
+                  required: 'Required',
+                  pattern: { value: GSTIN_REGEX, message: 'Invalid GSTIN format (e.g. 27ABCDE1234F1Z5)' },
+                })}
+                disabled={!isAdmin}
+                placeholder="27ABCDE1234F1Z5"
+                className={errors.gstin ? 'border-red-400' : ''}
+              />
+              {errors.gstin && <p className="text-xs text-red-500">{errors.gstin.message}</p>}
+            </div>
+
+            {/* State Code dropdown */}
+            <div className="space-y-1.5">
+              <Label>State Code <span className="text-red-500">*</span></Label>
+              <select
+                {...register('state_code', { required: 'Required' })}
+                disabled={!isAdmin}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm disabled:opacity-50"
+              >
+                <option value="">Select state…</option>
+                {INDIAN_STATES.map((s) => (
+                  <option key={s.code} value={s.code}>{s.code} — {s.name}</option>
+                ))}
+              </select>
+              {errors.state_code && <p className="text-xs text-red-500">{errors.state_code.message}</p>}
+            </div>
+
+            {/* PAN */}
+            <div className="space-y-1.5">
+              <Label>PAN</Label>
+              <Input {...register('pan')} disabled={!isAdmin} />
+            </div>
+
+            {/* Rest of fields */}
+            {[['phone','Phone'],['email','Email'],['cin','CIN'],['bank_name','Bank Name'],['bank_account','Bank Account No.'],['bank_ifsc','IFSC Code'],['upi_id','UPI ID']].map(([field, label]) => (
+              <div key={field} className="space-y-1.5">
+                <Label>{label}</Label>
+                <Input {...register(field)} disabled={!isAdmin} />
+              </div>
+            ))}
+
+            {/* Address */}
+            <div className="col-span-2 space-y-1.5">
+              <Label>Address</Label>
+              <textarea
+                {...register('address')}
+                rows={3}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
+                disabled={!isAdmin}
+              />
+            </div>
+          </div>
+
+          {/* Sticky Save button */}
           {isAdmin && (
-            <div className="col-span-2 flex justify-end">
-              <Button type="submit" disabled={mutation.isPending}>{mutation.isPending ? 'Saving…' : 'Save'}</Button>
+            <div className="sticky bottom-0 bg-white border-t mt-4 -mx-6 px-6 py-3 flex justify-end">
+              <Button type="submit" disabled={mutation.isPending}>
+                {mutation.isPending ? 'Saving…' : 'Save Changes'}
+              </Button>
             </div>
           )}
         </form>
