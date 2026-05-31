@@ -1,4 +1,4 @@
-import { useForm, useFieldArray, useWatch } from 'react-hook-form'
+import { useForm, useFieldArray } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
 import { ordersApi, settingsApi } from '@/lib/api'
@@ -23,9 +23,10 @@ export default function SOForm({ open, onClose, existing }) {
   })
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' })
-  const items = useWatch({ control, name: 'items' })
-  const taxable = items.reduce((s, i) => s + Number(i.qty || 0) * Number(i.rate || 0), 0)
-  const gst = items.reduce((s, i) => s + Number(i.qty || 0) * Number(i.rate || 0) * Number(i.gst_rate || 0) / 100, 0)
+  const pn = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n }
+  const items = watch('items') ?? []
+  const taxable = items.reduce((s, i) => s + pn(i.qty) * pn(i.rate), 0)
+  const gst = items.reduce((s, i) => s + pn(i.qty) * pn(i.rate) * pn(i.gst_rate) / 100, 0)
 
   const mutation = useMutation({
     mutationFn: (d) => existing ? ordersApi.update(existing.id, d) : ordersApi.create(d),
@@ -76,16 +77,16 @@ export default function SOForm({ open, onClose, existing }) {
                   </thead>
                   <tbody className="divide-y">
                     {fields.map((field, i) => {
-                      const amt = Number(items[i]?.qty || 0) * Number(items[i]?.rate || 0)
+                      const amt = pn(items[i]?.qty) * pn(items[i]?.rate)
                       return (
                         <tr key={field.id}>
                           <td className="px-2 py-1.5"><select value={items[i]?.product_id || ''} onChange={(e) => fillFromProduct(i, e.target.value)} className="h-8 rounded border border-input text-xs px-1 w-28"><option value="">Pick…</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select><input type="hidden" {...register(`items.${i}.product_id`)} /></td>
                           <td className="px-2 py-1.5"><Input className="h-8 text-xs min-w-32" {...register(`items.${i}.description`)} /></td>
                           <td className="px-2 py-1.5"><Input className="h-8 text-xs w-20" {...register(`items.${i}.hsn_code`)} /></td>
                           <td className="px-2 py-1.5"><Input className="h-8 text-xs w-16" {...register(`items.${i}.uom`)} /></td>
-                          <td className="px-2 py-1.5"><Input type="number" className="h-8 text-xs w-16" step="0.001" {...register(`items.${i}.qty`, { valueAsNumber: true })} /></td>
-                          <td className="px-2 py-1.5"><Input type="number" className="h-8 text-xs w-24" step="0.01" {...register(`items.${i}.rate`, { valueAsNumber: true })} /></td>
-                          <td className="px-2 py-1.5"><Input type="number" className="h-8 text-xs w-16" {...register(`items.${i}.gst_rate`, { valueAsNumber: true })} /></td>
+                          <td className="px-2 py-1.5"><Input type="number" className="h-8 text-xs w-16" min="1" step="1" {...register(`items.${i}.qty`)} /></td>
+                          <td className="px-2 py-1.5"><Input type="number" className="h-8 text-xs w-24" min="0" step="0.01" {...register(`items.${i}.rate`)} /></td>
+                          <td className="px-2 py-1.5"><Input type="number" className="h-8 text-xs w-16" min="0" step="1" {...register(`items.${i}.gst_rate`)} /></td>
                           <td className="px-2 py-1.5 text-right font-medium">₹{amt.toLocaleString('en-IN')}</td>
                           <td className="px-2 py-1.5">{fields.length > 1 && <Button type="button" size="icon" variant="ghost" onClick={() => remove(i)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>}</td>
                         </tr>

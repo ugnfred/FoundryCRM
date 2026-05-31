@@ -1,4 +1,4 @@
-import { useForm, useFieldArray, useWatch } from 'react-hook-form'
+import { useForm, useFieldArray } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
 import { quotationsApi, settingsApi } from '@/lib/api'
@@ -17,7 +17,7 @@ export default function QuotationForm({ open, onClose, existing }) {
   const { data: companies = [] } = useQuery({ queryKey: ['companies'], queryFn: settingsApi.listCompanies })
   const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: settingsApi.listProducts })
 
-  const { register, control, handleSubmit, setValue, watch } = useForm({
+  const { register, control, handleSubmit, setValue, watch, getValues } = useForm({
     defaultValues: existing
       ? { ...existing, items: existing.quotation_items ?? existing.items ?? [emptyItem] }
       : {
@@ -31,9 +31,10 @@ export default function QuotationForm({ open, onClose, existing }) {
   })
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' })
-  const items = useWatch({ control, name: 'items' })
-  const taxable = items.reduce((s, i) => s + Number(i.qty || 0) * Number(i.rate || 0), 0)
-  const gst = items.reduce((s, i) => s + Number(i.qty || 0) * Number(i.rate || 0) * Number(i.gst_rate || 0) / 100, 0)
+  const pn = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n }
+  const items = watch('items') ?? []
+  const taxable = items.reduce((s, i) => s + pn(i.qty) * pn(i.rate), 0)
+  const gst = items.reduce((s, i) => s + pn(i.qty) * pn(i.rate) * pn(i.gst_rate) / 100, 0)
 
   const mutation = useMutation({
     mutationFn: (data) => existing ? quotationsApi.update(existing.id, data) : quotationsApi.create(data),
@@ -102,7 +103,7 @@ export default function QuotationForm({ open, onClose, existing }) {
                   </thead>
                   <tbody className="divide-y">
                     {fields.map((field, i) => {
-                      const amt = Number(items[i]?.qty || 0) * Number(items[i]?.rate || 0)
+                      const amt = pn(items[i]?.qty) * pn(items[i]?.rate)
                       return (
                         <tr key={field.id}>
                           <td className="px-2 py-1.5">
@@ -115,9 +116,9 @@ export default function QuotationForm({ open, onClose, existing }) {
                           <td className="px-2 py-1.5"><Input className="h-8 text-xs min-w-32" {...register(`items.${i}.description`)} /></td>
                           <td className="px-2 py-1.5"><Input className="h-8 text-xs w-20" {...register(`items.${i}.hsn_code`)} /></td>
                           <td className="px-2 py-1.5"><Input className="h-8 text-xs w-16" {...register(`items.${i}.uom`)} /></td>
-                          <td className="px-2 py-1.5"><Input type="number" className="h-8 text-xs w-16" step="0.001" {...register(`items.${i}.qty`, { valueAsNumber: true })} /></td>
-                          <td className="px-2 py-1.5"><Input type="number" className="h-8 text-xs w-24" step="0.01" {...register(`items.${i}.rate`, { valueAsNumber: true })} /></td>
-                          <td className="px-2 py-1.5"><Input type="number" className="h-8 text-xs w-16" {...register(`items.${i}.gst_rate`, { valueAsNumber: true })} /></td>
+                          <td className="px-2 py-1.5"><Input type="number" className="h-8 text-xs w-16" min="1" step="1" {...register(`items.${i}.qty`)} /></td>
+                          <td className="px-2 py-1.5"><Input type="number" className="h-8 text-xs w-24" min="0" step="0.01" {...register(`items.${i}.rate`)} /></td>
+                          <td className="px-2 py-1.5"><Input type="number" className="h-8 text-xs w-16" min="0" step="1" {...register(`items.${i}.gst_rate`)} /></td>
                           <td className="px-2 py-1.5 text-right font-medium">₹{amt.toLocaleString('en-IN')}</td>
                           <td className="px-2 py-1.5">
                             {fields.length > 1 && (
