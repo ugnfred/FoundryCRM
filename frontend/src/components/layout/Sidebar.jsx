@@ -3,8 +3,10 @@ import {
   LayoutDashboard, FileText, ShoppingCart, Receipt,
   Package, Warehouse, Zap, Settings, ChevronRight,
 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
+import { settingsApi } from '@/lib/api'
 
 const nav = [
   { to: '/',                  label: 'Dashboard',       icon: LayoutDashboard, roles: ['admin','sales','accounts','dispatch'] },
@@ -19,13 +21,17 @@ const nav = [
 
 export default function Sidebar() {
   const { role } = useAuth()
+  const { data: company } = useQuery({ queryKey: ['company-settings'], queryFn: settingsApi.getCompany })
 
   return (
     <aside className="flex h-screen w-60 flex-col border-r bg-white">
       {/* Brand */}
       <div className="flex h-16 items-center gap-2 border-b px-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white font-bold text-sm">F</div>
-        <span className="font-semibold text-gray-900">Foundry ERP</span>
+        {company?.logo_url
+          ? <img src={company.logo_url} alt="Logo" className="h-8 w-8 rounded-lg object-contain" />
+          : <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white font-bold text-sm">F</div>
+        }
+        <span className="font-semibold text-gray-900">{company?.name || 'Foundry ERP'}</span>
       </div>
 
       {/* Nav */}

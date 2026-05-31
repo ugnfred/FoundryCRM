@@ -27,10 +27,16 @@ class NICClient:
             data = resp.json()
             return data["Data"]["AuthToken"]
 
+    def _get_our_settings(self) -> dict:
+        from app.db.client import get_db
+        result = get_db().table("company_settings").select("*").limit(1).execute()
+        return result.data[0] if result.data else {}
+
     def _build_irn_payload(self, invoice: dict) -> dict:
         """Map invoice dict to NIC IRN request schema."""
         company = invoice["companies"]
         items = invoice["invoice_items"]
+        our = self._get_our_settings()
 
         item_list = []
         for idx, item in enumerate(items, 1):
@@ -60,12 +66,12 @@ class NICClient:
                 "Dt": invoice["date"],
             },
             "SellerDtls": {
-                "Gstin": settings.nic_gstin,
-                "LglNm": "Our Company Name",
-                "Addr1": "Our Address",
-                "Loc": "Our City",
+                "Gstin": our.get("gstin", settings.nic_gstin),
+                "LglNm": our.get("name", "Our Company"),
+                "Addr1": our.get("address", "Our Address"),
+                "Loc": our.get("city", "Our City"),
                 "Pin": 400001,
-                "Stcd": _get_our_state_code(),
+                "Stcd": our.get("state_code", "27"),
             },
             "BuyerDtls": {
                 "Gstin": company.get("gstin", "URP"),
@@ -137,7 +143,3 @@ class NICClient:
             return data["Data"]
 
 
-def _get_our_state_code() -> str:
-    from app.db.client import get_db
-    result = get_db().table("company_settings").select("state_code").limit(1).execute()
-    return result.data[0]["state_code"] if result.data else "27"

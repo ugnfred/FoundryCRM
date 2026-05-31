@@ -19,6 +19,7 @@ class CompanySettingsIn(BaseModel):
     bank_account: str | None = None
     bank_ifsc: str | None = None
     upi_id: str | None = None
+    logo_url: str | None = None
 
 
 @router.get("/company")

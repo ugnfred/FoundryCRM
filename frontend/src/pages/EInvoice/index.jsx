@@ -68,7 +68,7 @@ export default function EInvoice() {
         E-Invoice is connected to NIC Sandbox. Switch <code>NIC_EINVOICE_BASE_URL</code> in <code>.env</code> to go live.
       </div>
       <p className="text-sm text-muted-foreground">{eligible.length} invoices eligible for e-invoicing</p>
-      <DataTable columns={columns} data={eligible} searchPlaceholder="Search invoices…" />
+      <DataTable columns={columns} data={eligible} searchPlaceholder="Search invoices…" emptyMessage="No invoices eligible for e-invoicing yet." />
       {ewbInvoice && <EWBModal open={!!ewbInvoice} onClose={() => setEwbInvoice(null)} invoice={ewbInvoice} />}
     </div>
   )

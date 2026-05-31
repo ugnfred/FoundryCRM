@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Plus, ArrowRightCircle } from 'lucide-react'
+import { Plus, ArrowRightCircle, Send, ThumbsUp, ThumbsDown } from 'lucide-react'
 import { quotationsApi } from '@/lib/api'
 import { formatCurrency, formatDate, statusColor } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,16 @@ export default function Quotations() {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState(null)
 
-  const { data = [], isLoading } = useQuery({ queryKey: ['quotations'], queryFn: quotationsApi.list })
+  const { data = [] } = useQuery({ queryKey: ['quotations'], queryFn: quotationsApi.list })
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, row, status }) => quotationsApi.update(id, { ...row, status }),
+    onSuccess: (_, { status }) => {
+      toast({ title: `Marked as ${status}` })
+      qc.invalidateQueries(['quotations'])
+    },
+    onError: (e) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+  })
 
   const convertMutation = useMutation({
     mutationFn: (id) => quotationsApi.convertToSO(id),
@@ -37,26 +46,40 @@ export default function Quotations() {
     { accessorKey: 'total', header: 'Total', cell: ({ getValue }) => formatCurrency(getValue()) },
     {
       accessorKey: 'status', header: 'Status',
-      cell: ({ getValue }) => (
-        <Badge className={statusColor(getValue())}>{getValue()}</Badge>
-      ),
+      cell: ({ getValue }) => <Badge className={statusColor(getValue())}>{getValue()}</Badge>,
     },
     {
       id: 'actions', header: '',
-      cell: ({ row }) => (
-        <div className="flex gap-2">
-          {canWrite && (
-            <>
-              <Button size="sm" variant="ghost" onClick={() => { setEditing(row.original); setOpen(true) }}>Edit</Button>
-              {['sent', 'accepted'].includes(row.original.status) && (
-                <Button size="sm" variant="outline" onClick={() => convertMutation.mutate(row.original.id)}>
-                  <ArrowRightCircle className="h-3 w-3 mr-1" /> To SO
+      cell: ({ row }) => {
+        if (!canWrite) return null
+        const { id, status } = row.original
+        return (
+          <div className="flex gap-1 flex-wrap">
+            <Button size="sm" variant="ghost" onClick={() => { setEditing(row.original); setOpen(true) }}>Edit</Button>
+
+            {status === 'draft' && (
+              <Button size="sm" variant="outline" onClick={() => statusMutation.mutate({ id, row: row.original, status: 'sent' })}>
+                <Send className="h-3 w-3 mr-1" />Send
+              </Button>
+            )}
+            {status === 'sent' && (
+              <>
+                <Button size="sm" variant="outline" className="text-green-700 border-green-300" onClick={() => statusMutation.mutate({ id, row: row.original, status: 'accepted' })}>
+                  <ThumbsUp className="h-3 w-3 mr-1" />Accept
                 </Button>
-              )}
-            </>
-          )}
-        </div>
-      ),
+                <Button size="sm" variant="outline" className="text-red-700 border-red-300" onClick={() => statusMutation.mutate({ id, row: row.original, status: 'rejected' })}>
+                  <ThumbsDown className="h-3 w-3 mr-1" />Lost
+                </Button>
+              </>
+            )}
+            {['sent', 'accepted'].includes(status) && (
+              <Button size="sm" variant="outline" onClick={() => convertMutation.mutate(id)}>
+                <ArrowRightCircle className="h-3 w-3 mr-1" />To SO
+              </Button>
+            )}
+          </div>
+        )
+      },
     },
   ]
 
@@ -70,7 +93,12 @@ export default function Quotations() {
           </Button>
         )}
       </div>
-      <DataTable columns={columns} data={data} searchPlaceholder="Search quotations…" />
+      <DataTable
+        columns={columns}
+        data={data}
+        searchPlaceholder="Search quotations…"
+        emptyMessage="No quotations yet. Create your first quotation to get started."
+      />
       {open && <QuotationForm open={open} onClose={() => setOpen(false)} existing={editing} />}
     </div>
   )

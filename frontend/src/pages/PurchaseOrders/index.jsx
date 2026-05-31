@@ -49,7 +49,7 @@ export default function PurchaseOrders() {
           </Button>
         )}
       </div>
-      <DataTable columns={columns} data={data} searchPlaceholder="Search POs…" />
+      <DataTable columns={columns} data={data} searchPlaceholder="Search POs…" emptyMessage="No purchase orders yet. Create your first PO to get started." />
       {open && <POForm open={open} onClose={() => setOpen(false)} existing={editing} />}
       {grnPO && <GRNForm open={!!grnPO} onClose={() => setGrnPO(null)} po={grnPO} />}
     </div>

@@ -7,12 +7,12 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { useState } from 'react'
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
-export function DataTable({ columns, data, searchKey, searchPlaceholder = 'Search…' }) {
+export function DataTable({ columns, data, searchKey, searchPlaceholder = 'Search…', emptyMessage = 'No records found.', getRowClassName }) {
   const [sorting, setSorting] = useState([])
   const [globalFilter, setGlobalFilter] = useState('')
 
@@ -60,7 +60,7 @@ export function DataTable({ columns, data, searchKey, searchPlaceholder = 'Searc
           </thead>
           <tbody className="divide-y">
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+              <tr key={row.id} className={getRowClassName ? getRowClassName(row) : 'hover:bg-gray-50 transition-colors'}>
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className="px-4 py-3">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -69,7 +69,14 @@ export function DataTable({ columns, data, searchKey, searchPlaceholder = 'Searc
               </tr>
             ))}
             {table.getRowModel().rows.length === 0 && (
-              <tr><td colSpan={columns.length} className="px-4 py-10 text-center text-muted-foreground">No records found.</td></tr>
+              <tr>
+                <td colSpan={columns.length} className="px-4 py-16 text-center">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <Inbox className="h-10 w-10 opacity-30" />
+                    <p className="text-sm">{globalFilter ? 'No results match your search.' : emptyMessage}</p>
+                  </div>
+                </td>
+              </tr>
             )}
           </tbody>
         </table>

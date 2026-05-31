@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { Plus, Download, CreditCard } from 'lucide-react'
 import { invoicesApi } from '@/lib/api'
 import { formatCurrency, formatDate, statusColor } from '@/lib/utils'
@@ -11,12 +11,26 @@ import InvoiceForm from './InvoiceForm'
 import PaymentModal from './PaymentModal'
 
 export default function Invoices() {
+  const qc = useQueryClient()
   const canWrite = useHasRole('admin', 'sales', 'accounts')
   const canPayment = useHasRole('admin', 'accounts')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [payInvoice, setPayInvoice] = useState(null)
   const { data = [] } = useQuery({ queryKey: ['invoices'], queryFn: invoicesApi.list })
+
+  // Fire-and-forget: mark overdue invoices silently on load
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    const overdueList = data.filter(
+      (inv) => ['sent', 'partially_paid'].includes(inv.status) && inv.due_date && inv.due_date < today
+    )
+    overdueList.forEach((inv) => {
+      invoicesApi.update(inv.id, { ...inv, status: 'overdue' }).then(() => {
+        qc.invalidateQueries(['invoices'])
+      }).catch(() => {})
+    })
+  }, [data])
 
   async function downloadPdf(inv) {
     const blob = await invoicesApi.downloadPdf(inv.id)
@@ -51,6 +65,10 @@ export default function Invoices() {
     },
   ]
 
+  // Custom row className for overdue highlighting
+  const getRowClassName = (row) =>
+    row.original.status === 'overdue' ? 'bg-red-50 hover:bg-red-100 text-red-900' : 'hover:bg-gray-50 transition-colors'
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -61,7 +79,13 @@ export default function Invoices() {
           </Button>
         )}
       </div>
-      <DataTable columns={columns} data={data} searchPlaceholder="Search invoices…" />
+      <DataTable
+        columns={columns}
+        data={data}
+        searchPlaceholder="Search invoices…"
+        emptyMessage="No invoices yet. Create your first invoice to get started."
+        getRowClassName={getRowClassName}
+      />
       {open && <InvoiceForm open={open} onClose={() => setOpen(false)} existing={editing} />}
       {payInvoice && <PaymentModal open={!!payInvoice} onClose={() => setPayInvoice(null)} invoice={payInvoice} />}
     </div>

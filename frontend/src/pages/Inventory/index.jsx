@@ -54,7 +54,7 @@ export default function Inventory() {
         <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">In Stock</p><p className="text-2xl font-bold text-green-600">{data.filter((p) => Number(p.balance) > 0).length}</p></CardContent></Card>
         <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Zero / Negative</p><p className="text-2xl font-bold text-red-600">{lowStock.length}</p></CardContent></Card>
       </div>
-      <DataTable columns={columns} data={data} searchPlaceholder="Search products…" />
+      <DataTable columns={columns} data={data} searchPlaceholder="Search products…" emptyMessage="No products in inventory. Add products in Settings to track stock." />
       {ledgerProduct && <LedgerModal open={!!ledgerProduct} onClose={() => setLedgerProduct(null)} product={ledgerProduct} />}
       {adjustProduct && <StockAdjustModal open={!!adjustProduct} onClose={() => setAdjustProduct(null)} product={adjustProduct} />}
     </div>

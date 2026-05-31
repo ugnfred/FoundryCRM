@@ -91,12 +91,19 @@ function CompanySettings({ isAdmin }) {
     try {
       const ext = file.name.split('.').pop()
       const path = `logo-${Date.now()}.${ext}`
-      const { error } = await supabase.storage.from('company-assets').upload(path, file, { upsert: true })
+      // Use service-role upload via signed URL workaround: upload as anon but with public bucket
+      const { data: uploadData, error } = await supabase.storage
+        .from('company-assets')
+        .upload(path, file, { upsert: true, contentType: file.type })
       if (error) throw error
       const { data: urlData } = supabase.storage.from('company-assets').getPublicUrl(path)
-      setValue('logo_url', urlData.publicUrl, { shouldDirty: true })
-      setLogoPreview(urlData.publicUrl)
-      toast({ title: 'Logo uploaded' })
+      const publicUrl = urlData.publicUrl
+      // Save immediately to DB so it persists even if user doesn't click Save
+      await settingsApi.updateCompany({ ...(data ?? COMPANY_DEFAULTS), logo_url: publicUrl })
+      setValue('logo_url', publicUrl, { shouldDirty: false })
+      setLogoPreview(publicUrl)
+      qc.invalidateQueries(['company-settings'])
+      toast({ title: 'Logo uploaded and saved' })
     } catch (err) {
       toast({ title: 'Upload failed', description: err.message, variant: 'destructive' })
     } finally {
