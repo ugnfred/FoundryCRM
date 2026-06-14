@@ -62,7 +62,8 @@ export default function Settings() {
 }
 
 const COMPANY_DEFAULTS = {
-  name: '', gstin: '', state_code: '', address: '', pan: '',
+  name: '', gstin: '', state_code: '', pan: '',
+  address_line1: '', address_line2: '', city: '', pincode: '',
   phone: '', email: '', cin: '', bank_name: '', bank_account: '',
   bank_ifsc: '', upi_id: '', logo_url: '', einvoice_env: 'sandbox',
 }
@@ -231,15 +232,22 @@ function CompanySettings({ isAdmin }) {
               <p className="text-xs text-muted-foreground">Sandbox uses NIC test environment. Switch to Production only when ready for real e-invoicing.</p>
             </div>
 
-            {/* Address */}
+            {/* Structured address */}
             <div className="col-span-2 space-y-1.5">
-              <Label>Address</Label>
-              <textarea
-                {...register('address')}
-                rows={3}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
-                disabled={!isAdmin}
-              />
+              <Label>Address Line 1 <span className="text-xs text-muted-foreground">(Door No., Street)</span></Label>
+              <Input {...register('address_line1')} disabled={!isAdmin} placeholder="e.g. Plot No. 12, Industrial Estate Road" />
+            </div>
+            <div className="col-span-2 space-y-1.5">
+              <Label>Address Line 2 <span className="text-xs text-muted-foreground">(Area / Locality)</span></Label>
+              <Input {...register('address_line2')} disabled={!isAdmin} placeholder="e.g. SIDCO Industrial Area, Phase II" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>City</Label>
+              <Input {...register('city')} disabled={!isAdmin} placeholder="e.g. Chennai" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Pincode</Label>
+              <Input {...register('pincode')} disabled={!isAdmin} placeholder="e.g. 600001" maxLength={6} />
             </div>
           </div>
 

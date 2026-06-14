@@ -10,7 +10,10 @@ class CompanySettingsIn(BaseModel):
     name: str
     gstin: str
     state_code: str
-    address: str | None = None
+    address_line1: str | None = None
+    address_line2: str | None = None
+    city: str | None = None
+    pincode: str | None = None
     pan: str | None = None
     phone: str | None = None
     email: str | None = None
