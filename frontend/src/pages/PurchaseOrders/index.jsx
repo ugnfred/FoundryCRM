@@ -23,6 +23,22 @@ export default function PurchaseOrders() {
     { accessorKey: 'date', header: 'Date', cell: ({ getValue }) => formatDate(getValue()) },
     { accessorKey: 'delivery_date', header: 'Delivery', cell: ({ getValue }) => formatDate(getValue()) },
     { accessorKey: 'total', header: 'Total', cell: ({ getValue }) => formatCurrency(getValue()) },
+    {
+      id: 'received',
+      header: 'Received',
+      cell: ({ row }) => {
+        const items = row.original.po_items ?? []
+        if (!items.length) return <span className="text-muted-foreground text-xs">—</span>
+        const ordered = items.reduce((s, i) => s + Number(i.qty ?? 0), 0)
+        const received = items.reduce((s, i) => s + Number(i.received_qty ?? 0), 0)
+        const pct = ordered > 0 ? Math.round((received / ordered) * 100) : 0
+        return (
+          <span className={`text-xs font-medium ${pct === 100 ? 'text-green-700' : pct > 0 ? 'text-amber-700' : 'text-muted-foreground'}`}>
+            {received}/{ordered} ({pct}%)
+          </span>
+        )
+      },
+    },
     { accessorKey: 'status', header: 'Status', cell: ({ getValue }) => <Badge className={statusColor(getValue())}>{getValue()}</Badge> },
     {
       id: 'actions', header: '',

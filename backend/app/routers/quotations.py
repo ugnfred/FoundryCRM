@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from uuid import UUID
 from decimal import Decimal
 from app.auth import get_current_user, require_roles
 from app.db.client import get_db
 from app.models.quotation import QuotationIn, QuotationOut
 from app.utils import jsonify
+from app.services.quotation_pdf import generate_quotation_pdf
 
 router = APIRouter(prefix="/quotations", tags=["Quotations"])
 
@@ -153,3 +155,21 @@ async def convert_to_so(
 
     db.table("quotations").update({"status": "accepted"}).eq("id", str(quotation_id)).execute()
     return {"so_id": so["id"], "so_no": so["so_no"]}
+
+
+@router.get("/{quotation_id}/pdf")
+async def download_quotation_pdf(
+    quotation_id: UUID,
+    user: dict = Depends(get_current_user),
+):
+    db = get_db()
+    result = db.table("quotations").select("*, companies(*), quotation_items(*)").eq("id", str(quotation_id)).single().execute()
+    if not result.data:
+        raise HTTPException(404, "Quotation not found")
+    pdf_bytes = generate_quotation_pdf(result.data)
+    filename = f"{result.data['quot_no']}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

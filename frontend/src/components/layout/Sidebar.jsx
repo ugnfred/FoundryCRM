@@ -1,7 +1,8 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, ShoppingCart, Receipt,
-  Package, Warehouse, Zap, Settings, ChevronRight,
+  Package, Warehouse, Zap, Settings, ChevronRight, PackageCheck, FileMinus, BarChart3,
+  ClipboardList, Truck, Banknote, GitBranch, HardHat,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
@@ -13,18 +14,26 @@ const nav = [
   { to: '/quotations',        label: 'Quotations',      icon: FileText,        roles: ['admin','sales','accounts'] },
   { to: '/sales-orders',      label: 'Sales Orders',    icon: ShoppingCart,    roles: ['admin','sales','accounts'] },
   { to: '/invoices',          label: 'Invoices',        icon: Receipt,         roles: ['admin','sales','accounts'] },
+  { to: '/credit-notes',      label: 'Credit Notes',    icon: FileMinus,       roles: ['admin','accounts'] },
+  { to: '/proforma',          label: 'Proforma Invoice', icon: ClipboardList,  roles: ['admin','sales','accounts'] },
+  { to: '/delivery-challans', label: 'Delivery Challan', icon: Truck,          roles: ['admin','sales','accounts','dispatch'] },
+  { to: '/work-orders',       label: 'Work Orders',      icon: HardHat,        roles: ['admin','accounts'] },
+  { to: '/advance-receipts',  label: 'Advance Receipts', icon: Banknote,       roles: ['admin','accounts'] },
+  { to: '/bom',               label: 'Bill of Materials', icon: GitBranch,     roles: ['admin','accounts'] },
   { to: '/purchase-orders',   label: 'Purchase Orders', icon: Package,         roles: ['admin','accounts'] },
+  { to: '/grns',              label: 'GRN',             icon: PackageCheck,    roles: ['admin','accounts'] },
   { to: '/inventory',         label: 'Inventory',       icon: Warehouse,       roles: ['admin','sales','accounts','dispatch'] },
   { to: '/einvoice',          label: 'E-Invoice',       icon: Zap,             roles: ['admin','accounts'] },
+  { to: '/reports',           label: 'Reports',         icon: BarChart3,       roles: ['admin','accounts'] },
   { to: '/settings',          label: 'Settings',        icon: Settings,        roles: ['admin'] },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ onNavClick }) {
   const { role } = useAuth()
   const { data: company } = useQuery({ queryKey: ['company-settings'], queryFn: settingsApi.getCompany })
 
   return (
-    <aside className="flex h-screen w-60 flex-col border-r bg-white">
+    <aside className="flex h-screen w-60 flex-col border-r bg-white shadow-lg md:shadow-none">
       {/* Brand */}
       <div className="flex h-16 items-center gap-2 border-b px-5">
         {company?.logo_url
@@ -43,6 +52,7 @@ export default function Sidebar() {
               key={to}
               to={to}
               end={to === '/'}
+              onClick={onNavClick}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',

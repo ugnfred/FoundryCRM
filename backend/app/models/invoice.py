@@ -68,3 +68,4 @@ class PaymentIn(BaseModel):
     mode: str = "bank_transfer"
     reference: str | None = None
     notes: str | None = None
+    advance_amount: Decimal = Decimal("0")  # amount to apply from advance credit

@@ -110,7 +110,7 @@ def _sync_so_status(db, so_id: str):
 @router.get("/")
 async def list_invoices(user: dict = Depends(get_current_user)):
     db = get_db()
-    invoices = db.table("invoices").select("*, companies(name)").order("date", desc=True).execute().data
+    invoices = db.table("invoices").select("*, companies(name), sales_orders!so_id(id, so_no)").order("date", desc=True).execute().data
 
     # Auto-flag overdue: sent invoices whose due_date has passed
     today = date.today().isoformat()
@@ -249,17 +249,40 @@ async def record_payment(
     if Decimal(str(payload.amount)) > balance_due:
         raise HTTPException(400, f"Payment {payload.amount} exceeds balance due {float(balance_due):.2f}")
 
+    # Apply advance credit if requested
+    advance_amt = Decimal(str(payload.advance_amount or 0))
+    if advance_amt > 0:
+        company_id = db.table("invoices").select("company_id").eq("id", str(invoice_id)).single().execute().data["company_id"]
+        # Validate available advance balance (received minus already applied)
+        ar_rows = db.table("advance_receipts").select("amount").eq("company_id", company_id).eq("status", "received").execute().data or []
+        total_received = sum(Decimal(str(r["amount"])) for r in ar_rows)
+        applied_rows = db.table("customer_ledger").select("debit").eq("company_id", company_id).eq("doc_type", "advance_applied").execute().data or []
+        total_applied = sum(Decimal(str(r["debit"])) for r in applied_rows)
+        available = max(Decimal("0"), total_received - total_applied)
+        if advance_amt > available:
+            raise HTTPException(400, f"Advance credit available: ₹{float(available):.2f}; requested: ₹{float(advance_amt):.2f}")
+        # Debit the advance credit in customer_ledger (advance consumed)
+        db.table("customer_ledger").insert({
+            "company_id": company_id,
+            "doc_type": "advance_applied",
+            "doc_no": str(invoice_id),
+            "doc_date": str(payload.date),
+            "debit": float(advance_amt),
+            "credit": 0,
+            "notes": f"Advance applied to invoice",
+        }).execute()
+
     payment_data = {
-        **payload.model_dump(exclude={"invoice_id"}),
+        **payload.model_dump(exclude={"invoice_id", "advance_amount"}),
         "invoice_id": str(invoice_id),
         "date": str(payload.date),
         "created_by": user["id"],
     }
     db.table("payments").insert(jsonify(payment_data)).execute()
 
-    # Recalculate total paid and update invoice status
+    # Recalculate total paid (cash payment + advance applied)
     payments = db.table("payments").select("amount").eq("invoice_id", str(invoice_id)).execute().data
-    total_paid = sum(Decimal(str(p["amount"])) for p in payments)
+    total_paid = sum(Decimal(str(p["amount"])) for p in payments) + advance_amt
     new_status = "paid" if total_paid >= Decimal(str(invoice["total"])) else "partially_paid"
     db.table("invoices").update({"amount_paid": float(total_paid), "status": new_status}).eq("id", str(invoice_id)).execute()
 

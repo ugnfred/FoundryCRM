@@ -12,9 +12,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
-export function DataTable({ columns, data, searchKey, searchPlaceholder = 'Search…', emptyMessage = 'No records found.', getRowClassName }) {
+export function DataTable({ columns, data, searchKey, searchPlaceholder = 'Search…', emptyMessage = 'No records found.', getRowClassName, defaultFilter = '' }) {
   const [sorting, setSorting] = useState([])
-  const [globalFilter, setGlobalFilter] = useState('')
+  const [globalFilter, setGlobalFilter] = useState(defaultFilter)
 
   const table = useReactTable({
     data,

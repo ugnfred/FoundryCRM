@@ -21,7 +21,7 @@ def _calc_totals(items: list[dict]) -> dict:
 @router.get("/")
 async def list_orders(user: dict = Depends(get_current_user)):
     db = get_db()
-    return db.table("sales_orders").select("*, companies(name), so_items(*)").order("created_at", desc=True).execute().data
+    return db.table("sales_orders").select("*, companies(name), so_items(*), invoices!so_id(id, inv_no, status, total)").order("created_at", desc=True).execute().data
 
 
 @router.get("/{so_id}")
@@ -99,16 +99,34 @@ async def update_order(
     return await get_order(so_id, user)
 
 
-@router.post("/{so_id}/create-invoice")
-async def create_invoice_from_so(
+@router.get("/{so_id}/invoice-prefill")
+async def get_invoice_prefill(
     so_id: UUID,
-    place_of_supply: str,
     user: dict = Depends(require_roles("admin", "sales", "accounts")),
 ):
-    """Stub: create invoice from SO — full logic in invoices router."""
+    """Return SO data shaped for pre-filling the invoice form."""
     db = get_db()
-    so = db.table("sales_orders").select("*").eq("id", str(so_id)).single().execute().data
+    so = db.table("sales_orders").select("*, companies(state_code), so_items(*)").eq("id", str(so_id)).single().execute().data
     if not so:
         raise HTTPException(404, "Sales order not found")
-    # Return SO data for the frontend to pre-fill the invoice form
-    return {"so_id": str(so_id), "company_id": so["company_id"], "place_of_supply": place_of_supply}
+
+    items = [
+        {
+            "product_id": item.get("product_id"),
+            "description": item["description"],
+            "hsn_code": item["hsn_code"],
+            "uom": item["uom"],
+            "qty": float(item["qty"]),
+            "rate": float(item["rate"]),
+            "gst_rate": float(item["gst_rate"]),
+            "sort_order": item.get("sort_order", 0),
+        }
+        for item in so.get("so_items", [])
+    ]
+    return {
+        "so_id": str(so_id),
+        "so_no": so["so_no"],
+        "company_id": so["company_id"],
+        "place_of_supply": (so.get("companies") or {}).get("state_code", "27"),
+        "items": items,
+    }

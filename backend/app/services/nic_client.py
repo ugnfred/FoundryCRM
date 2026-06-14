@@ -6,9 +6,20 @@ import httpx
 from app.config import settings
 
 
+NIC_SANDBOX_URL = "https://einv-apisandbox.nic.in"
+NIC_PROD_URL = "https://einvoice1.gst.gov.in"
+
+
+def _get_nic_base_url() -> str:
+    from app.db.client import get_db
+    result = get_db().table("company_settings").select("einvoice_env").limit(1).execute()
+    env = (result.data[0].get("einvoice_env") if result.data else None) or "sandbox"
+    return NIC_PROD_URL if env == "production" else NIC_SANDBOX_URL
+
+
 class NICClient:
     def __init__(self):
-        self.base = settings.nic_einvoice_base_url
+        self.base = _get_nic_base_url()
         self.gstin = settings.nic_gstin
 
     async def _get_token(self) -> str:
@@ -40,6 +51,8 @@ class NICClient:
 
         item_list = []
         for idx, item in enumerate(items, 1):
+            line_amt = round(float(item["qty"]) * float(item["rate"]), 2)
+            tax_amt = float(item["cgst_amt"]) + float(item["sgst_amt"]) + float(item["igst_amt"])
             item_list.append({
                 "SlNo": str(idx),
                 "PrdDesc": item["description"],
@@ -48,13 +61,13 @@ class NICClient:
                 "Qty": float(item["qty"]),
                 "Unit": item["uom"],
                 "UnitPrice": float(item["rate"]),
-                "TotAmt": float(item["amount"]),
-                "AssAmt": float(item["amount"]),
+                "TotAmt": line_amt,
+                "AssAmt": line_amt,
                 "GstRt": float(item["gst_rate"]),
                 "CgstAmt": float(item["cgst_amt"]),
                 "SgstAmt": float(item["sgst_amt"]),
                 "IgstAmt": float(item["igst_amt"]),
-                "TotItemVal": float(item["amount"]) + float(item["cgst_amt"]) + float(item["sgst_amt"]) + float(item["igst_amt"]),
+                "TotItemVal": round(line_amt + tax_amt, 2),
             })
 
         return {

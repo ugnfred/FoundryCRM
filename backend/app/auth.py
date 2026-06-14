@@ -20,6 +20,8 @@ async def get_current_user(
     result = db.table("profiles").select("*").eq("id", user_id).single().execute()
     if not result.data:
         raise HTTPException(status_code=401, detail="User profile not found")
+    if not result.data.get("is_active", True):
+        raise HTTPException(status_code=403, detail="Account deactivated. Contact your administrator.")
     return result.data
 
 

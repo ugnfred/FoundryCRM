@@ -27,7 +27,7 @@ export default function GRNForm({ open, onClose, po }) {
 
   const mutation = useMutation({
     mutationFn: (d) => purchaseOrdersApi.createGRN(po.id, d),
-    onSuccess: (res) => { toast({ title: 'GRN Created', description: `GRN ${res.grn_no} recorded.` }); qc.invalidateQueries(['purchase-orders']); onClose() },
+    onSuccess: (res) => { toast({ title: 'GRN Created', description: `GRN ${res.grn_no} recorded.` }); qc.invalidateQueries(['purchase-orders']); qc.invalidateQueries(['grns']); onClose() },
     onError: (e) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
   })
 

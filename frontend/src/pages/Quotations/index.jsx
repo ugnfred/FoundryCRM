@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Plus, ArrowRightCircle, Send, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { Plus, ArrowRightCircle, Send, ThumbsUp, ThumbsDown, Download } from 'lucide-react'
 import { quotationsApi } from '@/lib/api'
 import { formatCurrency, formatDate, statusColor } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,17 @@ export default function Quotations() {
   const canWrite = useHasRole('admin', 'sales')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState(null)
+
+  async function downloadPdf(quot) {
+    try {
+      const blob = await quotationsApi.downloadPdf(quot.id)
+      const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }))
+      const a = document.createElement('a'); a.href = url; a.download = `${quot.quot_no}.pdf`; a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' })
+    }
+  }
 
   const { data = [] } = useQuery({ queryKey: ['quotations'], queryFn: quotationsApi.list })
 
@@ -56,6 +67,9 @@ export default function Quotations() {
         return (
           <div className="flex gap-1 flex-wrap">
             <Button size="sm" variant="ghost" onClick={() => { setEditing(row.original); setOpen(true) }}>Edit</Button>
+            <Button size="sm" variant="ghost" onClick={() => downloadPdf(row.original)}>
+              <Download className="h-3 w-3" />
+            </Button>
 
             {status === 'draft' && (
               <Button size="sm" variant="outline" onClick={() => statusMutation.mutate({ id, row: row.original, status: 'sent' })}>

@@ -108,10 +108,7 @@ async def create_grn(
     if not po:
         raise HTTPException(404, "PO not found")
 
-    import random, string
-    grn_no = "GRN-" + "".join(random.choices(string.digits, k=6))
     grn_data = {
-        "grn_no": grn_no,
         "po_id": str(po_id),
         "received_date": str(payload.received_date),
         "notes": payload.notes,
@@ -119,6 +116,7 @@ async def create_grn(
     }
     grn_result = db.table("grn").insert(grn_data).execute()
     grn = grn_result.data[0]
+    grn_no = grn.get("grn_no", grn["id"])
 
     grn_items_batch = []
     for item in payload.items:

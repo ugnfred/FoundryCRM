@@ -16,17 +16,27 @@ const STATE_CODES = [
   { code: '19', name: 'West Bengal' }, { code: '24', name: 'Gujarat' },
 ]
 
-export default function InvoiceForm({ open, onClose, existing }) {
+export default function InvoiceForm({ open, onClose, existing, fromSO }) {
   const qc = useQueryClient()
   const { toast } = useToast()
   const { data: companies = [] } = useQuery({ queryKey: ['companies'], queryFn: settingsApi.listCompanies })
   const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: settingsApi.listProducts })
 
-  const { register, control, handleSubmit, setValue, watch } = useForm({
-    defaultValues: existing
-      ? { ...existing, items: existing.invoice_items ?? existing.items ?? [emptyItem] }
-      : { company_id: '', date: new Date().toISOString().slice(0, 10), due_date: '', place_of_supply: '27', items: [emptyItem] },
-  })
+  // Build defaultValues: existing edit > SO prefill > blank
+  const getDefaults = () => {
+    if (existing) return { ...existing, items: existing.invoice_items ?? existing.items ?? [emptyItem] }
+    if (fromSO) return {
+      company_id: fromSO.company_id,
+      so_id: fromSO.so_id,
+      date: new Date().toISOString().slice(0, 10),
+      due_date: '',
+      place_of_supply: fromSO.place_of_supply ?? '27',
+      items: fromSO.items?.length ? fromSO.items : [emptyItem],
+    }
+    return { company_id: '', date: new Date().toISOString().slice(0, 10), due_date: '', place_of_supply: '27', items: [emptyItem] }
+  }
+
+  const { register, control, handleSubmit, setValue, watch } = useForm({ defaultValues: getDefaults() })
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' })
   const pn = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n }
@@ -54,9 +64,15 @@ export default function InvoiceForm({ open, onClose, existing }) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>{existing ? 'Edit Invoice' : 'New Invoice'}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>
+            {existing ? 'Edit Invoice' : fromSO ? `New Invoice — from ${fromSO.so_no}` : 'New Invoice'}
+          </DialogTitle>
+        </DialogHeader>
         <DialogBody>
           <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-5">
+            {/* so_id must be submitted so the invoice links back to the SO */}
+            <input type="hidden" {...register('so_id')} />
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               <div className="col-span-2 space-y-1.5">
                 <Label>Customer</Label>
