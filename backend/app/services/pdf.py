@@ -11,8 +11,7 @@ from reportlab.lib.enums import TA_RIGHT, TA_CENTER, TA_LEFT
 
 
 # ─── Colour palette ───────────────────────────────────────────────────────────
-BLUE_HEADER   = colors.HexColor("#1a56db")
-BLUE_LIGHT    = colors.HexColor("#eff6ff")
+# Shared neutrals
 GREY_BORDER   = colors.HexColor("#cbd5e1")
 GREY_ALT_ROW  = colors.HexColor("#f8fafc")
 HIGHLIGHT_BG  = colors.HexColor("#fef9c3")   # soft yellow for Balance Due
@@ -20,9 +19,48 @@ TEXT_DARK     = colors.HexColor("#111827")
 TEXT_MID      = colors.HexColor("#374151")
 TEXT_LIGHT    = colors.HexColor("#6b7280")
 
+# Per-document accent colours (kept for backward-compat imports in other modules)
+BLUE_HEADER   = colors.HexColor("#1a56db")   # Sales Order — blue
+BLUE_LIGHT    = colors.HexColor("#eff6ff")
+
+# Invoice (Tax Invoice) — teal/green
+INV_ACCENT    = colors.HexColor("#0f766e")
+INV_LIGHT     = colors.HexColor("#f0fdf4")
+
 PAGE_W        = A4[0]
 L_MARGIN = R_MARGIN = 15 * mm
 USABLE_W      = PAGE_W - L_MARGIN - R_MARGIN   # ≈ 165 mm
+
+
+# ─── Amount in Words (Indian rupees) ─────────────────────────────────────────
+_ONES = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+         'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+         'Seventeen', 'Eighteen', 'Nineteen']
+_TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
+
+
+def _n2w(n: int) -> str:
+    if n < 20:
+        return _ONES[n]
+    if n < 100:
+        return _TENS[n // 10] + (' ' + _ONES[n % 10] if n % 10 else '')
+    if n < 1_000:
+        return _ONES[n // 100] + ' Hundred' + (' ' + _n2w(n % 100) if n % 100 else '')
+    if n < 1_00_000:
+        return _n2w(n // 1_000) + ' Thousand' + (' ' + _n2w(n % 1_000) if n % 1_000 else '')
+    if n < 1_00_00_000:
+        return _n2w(n // 1_00_000) + ' Lakh' + (' ' + _n2w(n % 1_00_000) if n % 1_00_000 else '')
+    return _n2w(n // 1_00_00_000) + ' Crore' + (' ' + _n2w(n % 1_00_00_000) if n % 1_00_00_000 else '')
+
+
+def _amount_in_words(amount: Decimal) -> str:
+    amt     = Decimal(str(amount)).quantize(Decimal('0.01'))
+    rupees  = int(amt)
+    paise   = int(round((amt - rupees) * 100))
+    result  = f'Rupees {_n2w(rupees)}' if rupees else 'Rupees Zero'
+    if paise:
+        result += f' and {_n2w(paise)} Paise'
+    return result + ' Only'
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -45,8 +83,10 @@ def _get_company_settings() -> dict:
     return result.data[0] if result.data else {}
 
 
-def _build_styles():
-    base = getSampleStyleSheet()
+def _build_styles(accent=None):
+    """Build paragraph styles. Pass accent= to set the document's key colour."""
+    _accent = accent if accent is not None else BLUE_HEADER
+    base    = getSampleStyleSheet()
 
     def ps(name, **kw):
         parent = kw.pop("parent", base["Normal"])
@@ -59,16 +99,37 @@ def _build_styles():
         "bold":      ps("pdf_bold",     fontSize=8,  leading=11, fontName="Helvetica-Bold", textColor=TEXT_DARK),
         "bold_mid":  ps("pdf_bold_mid", fontSize=9,  leading=12, fontName="Helvetica-Bold", textColor=TEXT_DARK),
         "title":     ps("pdf_title",    fontSize=14, leading=17, fontName="Helvetica-Bold",
-                        alignment=TA_CENTER, textColor=BLUE_HEADER),
+                        alignment=TA_CENTER, textColor=_accent),
+        "subtitle":  ps("pdf_subtitle", fontSize=7.5, leading=10, fontName="Helvetica",
+                        alignment=TA_CENTER, textColor=TEXT_LIGHT),
         "co_name":   ps("pdf_co_name",  fontSize=11, leading=14, fontName="Helvetica-Bold", textColor=TEXT_DARK),
         "r_normal":  ps("pdf_r_normal", fontSize=8,  leading=11, alignment=TA_RIGHT, textColor=TEXT_DARK),
         "r_bold":    ps("pdf_r_bold",   fontSize=9,  leading=12, fontName="Helvetica-Bold",
                         alignment=TA_RIGHT, textColor=TEXT_DARK),
         "r_large":   ps("pdf_r_large",  fontSize=10, leading=13, fontName="Helvetica-Bold",
-                        alignment=TA_RIGHT, textColor=BLUE_HEADER),
+                        alignment=TA_RIGHT, textColor=_accent),
         "footer":    ps("pdf_footer",   fontSize=7,  leading=10, textColor=TEXT_LIGHT),
         "c_normal":  ps("pdf_c_normal", fontSize=8,  leading=11, alignment=TA_CENTER, textColor=TEXT_DARK),
+        "words":     ps("pdf_words",    fontSize=7.5, leading=10, fontName="Helvetica-Oblique",
+                        textColor=TEXT_MID),
     }
+
+
+def _watermark_fn(text: str, fill_color=None):
+    """Return an onPage/onLaterPages callback that stamps a diagonal watermark."""
+    from reportlab.lib.colors import Color
+    wm_color = fill_color or Color(0.75, 0.75, 0.75, alpha=0.15)
+
+    def draw(canvas, doc):
+        canvas.saveState()
+        canvas.setFont("Helvetica-Bold", 72)
+        canvas.setFillColor(wm_color)
+        canvas.translate(A4[0] / 2, A4[1] / 2)
+        canvas.rotate(45)
+        canvas.drawCentredString(0, 0, text)
+        canvas.restoreState()
+
+    return draw
 
 
 def _fetch_logo(url: str):
@@ -195,20 +256,30 @@ def _cell(paragraphs: list, padding: int = 5) -> list:
 # ─── Main generator ───────────────────────────────────────────────────────────
 
 def generate_invoice_pdf(invoice: dict) -> bytes:
-    buf = BytesIO()
-    doc = SimpleDocTemplate(
-        buf,
-        pagesize=A4,
-        leftMargin=L_MARGIN,
-        rightMargin=R_MARGIN,
-        topMargin=14 * mm,
-        bottomMargin=14 * mm,
+    buf    = BytesIO()
+    doc    = SimpleDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=L_MARGIN, rightMargin=R_MARGIN,
+        topMargin=14 * mm, bottomMargin=14 * mm,
     )
-    st    = _build_styles()
+    st    = _build_styles(accent=INV_ACCENT)
     story = []
 
     our      = _get_company_settings()
     customer = invoice.get("companies") or {}
+    status   = _s(invoice.get("status"))
+
+    # Watermark callback based on invoice status
+    from reportlab.lib.colors import Color
+    _wm = None
+    if status == "paid":
+        _wm = _watermark_fn("PAID",      Color(0.06, 0.47, 0.07, alpha=0.18))
+    elif status == "cancelled":
+        _wm = _watermark_fn("CANCELLED", Color(0.8, 0.1, 0.1, alpha=0.15))
+    elif status == "draft":
+        _wm = _watermark_fn("DRAFT")
+    elif status == "overdue":
+        _wm = _watermark_fn("OVERDUE",   Color(0.8, 0.2, 0.0, alpha=0.15))
 
     # ── 1. Title bar ────────────────────────────────────────────────────────
     logo_el = _fetch_logo(_s(our.get("logo_url"))) if _s(our.get("logo_url")) else None
@@ -246,7 +317,7 @@ def generate_invoice_pdf(invoice: dict) -> bytes:
         ("VALIGN",        (0, 0), (-1, -1), "TOP"),
         ("BOX",           (0, 0), (-1, -1), 0.6, GREY_BORDER),
         ("LINEBEFORE",    (1, 0), (1, -1),  0.5, GREY_BORDER),
-        ("BACKGROUND",    (0, 0), (-1, -1), BLUE_LIGHT),
+        ("BACKGROUND",    (0, 0), (-1, -1), INV_LIGHT),
         ("TOPPADDING",    (0, 0), (-1, -1), 7),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
         ("LEFTPADDING",   (0, 0), (-1, -1), 7),
@@ -298,7 +369,7 @@ def generate_invoice_pdf(invoice: dict) -> bytes:
     item_table = Table(rows, colWidths=col_widths, repeatRows=1)
     item_table.setStyle(TableStyle([
         # Header row
-        ("BACKGROUND",    (0, 0), (-1, 0),  BLUE_HEADER),
+        ("BACKGROUND",    (0, 0), (-1, 0),  INV_ACCENT),
         ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.white),
         ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
         ("FONTSIZE",      (0, 0), (-1, 0),  7.5),
@@ -348,21 +419,23 @@ def generate_invoice_pdf(invoice: dict) -> bytes:
     if igst_amt > 0:
         totals_rows.append(_trow("IGST", _money(igst_amt)))
 
-    # Separator before Grand Total
+    # Separator + Grand Total
     totals_rows.append(["", ""])   # blank spacer row
+    blank_idx = len(totals_rows) - 1
     totals_rows.append(_trow("<b>Grand Total</b>", f"<b>{_money(total)}</b>", "bold", "r_bold"))
+    grand_idx = len(totals_rows) - 1
+
+    # Amount in Words — full-width spanning row
+    words_text = _amount_in_words(total)
+    totals_rows.append([Paragraph(f"<i>{words_text}</i>", st["words"]), ""])
+    words_idx = len(totals_rows) - 1
 
     totals_rows.append(_trow("Amount Paid", _money(paid)))
 
     balance_label = Paragraph("<b>Balance Due</b>", st["bold"])
     balance_value = Paragraph(f"<b>{_money(balance)}</b>", st["r_large"])
     totals_rows.append([balance_label, balance_value])
-
-    # Row indices for styling
-    n          = len(totals_rows)
-    blank_idx  = totals_rows.index(["", ""])          # separator blank row
-    grand_idx  = blank_idx + 1
-    balance_idx = n - 1
+    balance_idx = len(totals_rows) - 1
 
     totals_table = Table(totals_rows, colWidths=[T_LABEL_W, T_VALUE_W], hAlign="RIGHT")
     totals_table.setStyle(TableStyle([
@@ -373,6 +446,11 @@ def generate_invoice_pdf(invoice: dict) -> bytes:
         ("RIGHTPADDING",  (0, 0), (-1, -1), 5),
         ("ALIGN",         (1, 0), (1, -1),  "RIGHT"),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        # Amount in Words spans full width
+        ("SPAN",          (0, words_idx), (1, words_idx)),
+        ("BACKGROUND",    (0, words_idx), (-1, words_idx), colors.HexColor("#f8f8f4")),
+        ("TOPPADDING",    (0, words_idx), (-1, words_idx), 4),
+        ("BOTTOMPADDING", (0, words_idx), (-1, words_idx), 4),
         # Top border on Grand Total row
         ("LINEABOVE",     (0, grand_idx), (-1, grand_idx), 0.8, GREY_BORDER),
         # Top border above Balance Due
@@ -382,7 +460,7 @@ def generate_invoice_pdf(invoice: dict) -> bytes:
         ("FONTNAME",      (0, grand_idx),   (-1, grand_idx),   "Helvetica-Bold"),
         # Outer box
         ("BOX",           (0, 0), (-1, -1), 0.5, GREY_BORDER),
-        # No row for the blank spacer
+        # Blank spacer
         ("TOPPADDING",    (0, blank_idx), (-1, blank_idx), 1),
         ("BOTTOMPADDING", (0, blank_idx), (-1, blank_idx), 1),
     ]))
@@ -440,5 +518,8 @@ def generate_invoice_pdf(invoice: dict) -> bytes:
     story.append(footer_table)
 
     # ── 8. Build PDF ────────────────────────────────────────────────────────
-    doc.build(story)
+    if _wm:
+        doc.build(story, onFirstPage=_wm, onLaterPages=_wm)
+    else:
+        doc.build(story)
     return buf.getvalue()

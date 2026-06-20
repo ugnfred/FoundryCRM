@@ -1,18 +1,23 @@
-"""Quotation PDF — matches the Tax Invoice layout exactly."""
+"""Quotation PDF — amber accent, "NOT A TAX INVOICE" disclaimer, validity badge."""
 from io import BytesIO
 from decimal import Decimal
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 
-# Re-use all helpers and styles from the invoice PDF module
 from app.services.pdf import (
     _s, _money, _get_company_settings, _build_styles,
-    _seller_lines, _bill_to_lines, _fetch_logo,
-    BLUE_HEADER, BLUE_LIGHT, GREY_BORDER, GREY_ALT_ROW,
-    TEXT_LIGHT, L_MARGIN, R_MARGIN, USABLE_W,
+    _seller_lines, _bill_to_lines, _fetch_logo, _watermark_fn,
+    GREY_BORDER, GREY_ALT_ROW, TEXT_LIGHT, TEXT_MID,
+    L_MARGIN, R_MARGIN, USABLE_W,
 )
+
+# Quotation colour scheme — amber/gold (tentative / pending acceptance)
+QUOT_ACCENT = colors.HexColor("#b45309")   # dark amber
+QUOT_LIGHT  = colors.HexColor("#fffbeb")   # pale amber tint
 
 
 def generate_quotation_pdf(quotation: dict) -> bytes:
@@ -22,30 +27,37 @@ def generate_quotation_pdf(quotation: dict) -> bytes:
         leftMargin=L_MARGIN, rightMargin=R_MARGIN,
         topMargin=14 * mm, bottomMargin=14 * mm,
     )
-    st    = _build_styles()
+    st    = _build_styles(accent=QUOT_ACCENT)
     story = []
 
     our      = _get_company_settings()
     customer = quotation.get("companies") or {}
+    status   = _s(quotation.get("status"))
 
-    # ── 1. Title bar ────────────────────────────────────────────────────────
-    title_para = Paragraph("QUOTATION", st["title"])
+    # Watermark for draft quotations
+    _wm = _watermark_fn("DRAFT") if status == "draft" else None
+
+    # ── 1. Title bar ─────────────────────────────────────────────────────────
+    title_para    = Paragraph("QUOTATION", st["title"])
+    subtitle_para = Paragraph("ESTIMATE · NOT A TAX INVOICE", st["subtitle"])
 
     logo_el = _fetch_logo(_s(our.get("logo_url"))) if _s(our.get("logo_url")) else None
     if logo_el:
         title_row = Table(
-            [[logo_el, title_para, ""]],
+            [[logo_el, [title_para, Spacer(1, 1*mm), subtitle_para], ""]],
             colWidths=[38 * mm, USABLE_W - 76 * mm, 38 * mm],
         )
         title_row.setStyle(TableStyle([
-            ("VALIGN",  (0, 0), (-1, -1), "MIDDLE"),
-            ("ALIGN",   (1, 0), (1,  0),  "CENTER"),
+            ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN",         (1, 0), (1,  0),  "CENTER"),
             ("TOPPADDING",    (0, 0), (-1, -1), 0),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
         ]))
         story.append(title_row)
     else:
         story.append(title_para)
+        story.append(Spacer(1, 1 * mm))
+        story.append(subtitle_para)
 
     story.append(Spacer(1, 3 * mm))
 
@@ -53,23 +65,29 @@ def generate_quotation_pdf(quotation: dict) -> bytes:
     LEFT_W  = USABLE_W * 0.56
     RIGHT_W = USABLE_W - LEFT_W
 
-    def _quot_meta_lines(q: dict, st: dict) -> list:
+    def _quot_meta_lines(q: dict) -> list:
         lines = []
+
         def row(label, value):
             if value:
                 lines.append(Paragraph(f"<b>{label}:</b> {value}", st["r_normal"]))
+
         row("Quotation No", _s(q.get("quot_no")))
         row("Date",         _s(q.get("date")))
-        row("Valid Until",  _s(q.get("valid_until")) or "—")
+
+        valid_until = _s(q.get("valid_until"))
+        if valid_until:
+            lines.append(Paragraph(f"<b>Valid Until:</b> {valid_until}", st["r_normal"]))
+
         return lines
 
-    header_data  = [[_seller_lines(our, st), _quot_meta_lines(quotation, st)]]
+    header_data  = [[_seller_lines(our, st), _quot_meta_lines(quotation)]]
     header_table = Table(header_data, colWidths=[LEFT_W, RIGHT_W])
     header_table.setStyle(TableStyle([
         ("VALIGN",        (0, 0), (-1, -1), "TOP"),
         ("BOX",           (0, 0), (-1, -1), 0.6, GREY_BORDER),
         ("LINEBEFORE",    (1, 0), (1,  -1), 0.5, GREY_BORDER),
-        ("BACKGROUND",    (0, 0), (-1, -1), BLUE_LIGHT),
+        ("BACKGROUND",    (0, 0), (-1, -1), QUOT_LIGHT),
         ("TOPPADDING",    (0, 0), (-1, -1), 7),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
         ("LEFTPADDING",   (0, 0), (-1, -1), 7),
@@ -116,7 +134,7 @@ def generate_quotation_pdf(quotation: dict) -> bytes:
 
     item_table = Table(rows, colWidths=col_widths, repeatRows=1)
     item_table.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, 0),  BLUE_HEADER),
+        ("BACKGROUND",    (0, 0), (-1, 0),  QUOT_ACCENT),
         ("TEXTCOLOR",     (0, 0), (-1, 0),  colors.white),
         ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
         ("FONTSIZE",      (0, 0), (-1, -1), 7.5),
@@ -148,8 +166,8 @@ def generate_quotation_pdf(quotation: dict) -> bytes:
     total       = Decimal(str(quotation.get("total")       or 0))
 
     totals_rows = [
-        _trow("Taxable Amount", _money(taxable_amt)),
-        _trow("GST",            _money(total_gst)),
+        _trow("Taxable Amount",     _money(taxable_amt)),
+        _trow("Estimated GST",      _money(total_gst)),
         ["", ""],
         _trow("<b>Grand Total</b>", f"<b>{_money(total)}</b>", "bold", "r_bold"),
     ]
@@ -197,12 +215,14 @@ def generate_quotation_pdf(quotation: dict) -> bytes:
         "________________________________<br/>"
         "<b>Authorised Signatory</b>"
     )
-    validity_text = (
-        f"This quotation is valid until <b>{_s(quotation.get('valid_until')) or '—'}</b>.<br/>"
-        "Prices are subject to change after the validity date."
+    valid_until  = _s(quotation.get("valid_until")) or "—"
+    footer_left  = (
+        f"This quotation is valid until <b>{valid_until}</b>.<br/>"
+        "Prices are subject to change after the validity date.<br/>"
+        "<font color='#b45309'>This is an estimate and not a tax invoice.</font>"
     )
 
-    footer_data  = [[Paragraph(validity_text, st["footer"]), Paragraph(sig_text, st["small"])]]
+    footer_data  = [[Paragraph(footer_left, st["footer"]), Paragraph(sig_text, st["small"])]]
     footer_table = Table(footer_data, colWidths=[USABLE_W * 0.62, USABLE_W * 0.38])
     footer_table.setStyle(TableStyle([
         ("VALIGN",        (0, 0), (-1, -1), "BOTTOM"),
@@ -214,5 +234,8 @@ def generate_quotation_pdf(quotation: dict) -> bytes:
     ]))
     story.append(footer_table)
 
-    doc.build(story)
+    if _wm:
+        doc.build(story, onFirstPage=_wm, onLaterPages=_wm)
+    else:
+        doc.build(story)
     return buf.getvalue()
