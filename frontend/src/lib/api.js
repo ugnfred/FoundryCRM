@@ -52,6 +52,8 @@ export const ordersApi = {
   get: (id) => api.get(`/api/v1/orders/${id}`),
   create: (data) => api.post('/api/v1/orders/', data),
   update: (id, data) => api.put(`/api/v1/orders/${id}`, data),
+  updateStatus: (id, status) => api.patch(`/api/v1/orders/${id}/status`, null, { params: { status } }),
+  delete: (id) => api.delete(`/api/v1/orders/${id}`),
   getInvoicePrefill: (id) => api.get(`/api/v1/orders/${id}/invoice-prefill`),
 }
 

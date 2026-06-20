@@ -99,6 +99,35 @@ async def update_order(
     return await get_order(so_id, user)
 
 
+@router.patch("/{so_id}/status")
+async def update_order_status(
+    so_id: UUID,
+    status: str,
+    user: dict = Depends(require_roles("admin", "sales")),
+):
+    valid = {"draft", "confirmed", "dispatched", "closed", "cancelled"}
+    if status not in valid:
+        raise HTTPException(400, f"Status must be one of {valid}")
+    db = get_db()
+    db.table("sales_orders").update({"status": status}).eq("id", str(so_id)).execute()
+    return {"status": status}
+
+
+@router.delete("/{so_id}", status_code=204)
+async def delete_order(
+    so_id: UUID,
+    user: dict = Depends(require_roles("admin")),
+):
+    db = get_db()
+    so = db.table("sales_orders").select("status").eq("id", str(so_id)).single().execute().data
+    if not so:
+        raise HTTPException(404, "Sales order not found")
+    if so["status"] not in ("draft", "cancelled"):
+        raise HTTPException(400, f"Cannot delete a {so['status']} order — cancel it first")
+    db.table("so_items").delete().eq("so_id", str(so_id)).execute()
+    db.table("sales_orders").delete().eq("id", str(so_id)).execute()
+
+
 @router.get("/{so_id}/invoice-prefill")
 async def get_invoice_prefill(
     so_id: UUID,

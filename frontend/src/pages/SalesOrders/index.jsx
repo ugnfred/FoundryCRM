@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Plus, CheckCircle, Truck, Receipt } from 'lucide-react'
+import { Plus, CheckCircle, Truck, Receipt, Trash2 } from 'lucide-react'
 import { ordersApi } from '@/lib/api'
 import { formatCurrency, formatDate, statusColor } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -33,11 +33,17 @@ export default function SalesOrders() {
   }, [location.state])
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, row, status }) => ordersApi.update(id, { ...row, status }),
+    mutationFn: ({ id, status }) => ordersApi.updateStatus(id, status),
     onSuccess: (_, { status }) => {
       toast({ title: `Order marked as ${status}` })
       qc.invalidateQueries(['orders'])
     },
+    onError: (e) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => ordersApi.delete(id),
+    onSuccess: () => { toast({ title: 'Order deleted' }); qc.invalidateQueries(['orders']) },
     onError: (e) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
   })
 
@@ -90,14 +96,22 @@ export default function SalesOrders() {
             )}
             {canWrite && status === 'draft' && (
               <Button size="sm" variant="outline" className="text-blue-700 border-blue-300"
-                onClick={() => statusMutation.mutate({ id, row: row.original, status: 'confirmed' })}>
+                disabled={statusMutation.isPending}
+                onClick={() => statusMutation.mutate({ id, status: 'confirmed' })}>
                 <CheckCircle className="h-3 w-3 mr-1" />Confirm
               </Button>
             )}
             {canWrite && status === 'confirmed' && (
               <Button size="sm" variant="outline" className="text-purple-700 border-purple-300"
-                onClick={() => statusMutation.mutate({ id, row: row.original, status: 'dispatched' })}>
+                disabled={statusMutation.isPending}
+                onClick={() => statusMutation.mutate({ id, status: 'dispatched' })}>
                 <Truck className="h-3 w-3 mr-1" />Dispatched
+              </Button>
+            )}
+            {canWrite && ['draft', 'cancelled'].includes(status) && (
+              <Button size="sm" variant="ghost" className="text-red-500"
+                onClick={() => { if (confirm(`Delete ${row.original.so_no}?`)) deleteMutation.mutate(id) }}>
+                <Trash2 className="h-3 w-3" />
               </Button>
             )}
             {canInvoice && ['confirmed', 'dispatched'].includes(status) && (

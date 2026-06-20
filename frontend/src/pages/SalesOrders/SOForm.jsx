@@ -1,5 +1,6 @@
 import { useForm, useFieldArray } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { ordersApi, settingsApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -16,11 +17,18 @@ export default function SOForm({ open, onClose, existing }) {
   const { data: companies = [] } = useQuery({ queryKey: ['companies'], queryFn: settingsApi.listCompanies })
   const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: settingsApi.listProducts })
 
-  const { register, control, handleSubmit, setValue, watch } = useForm({
+  const { register, control, handleSubmit, setValue, watch, reset } = useForm({
     defaultValues: existing
       ? { ...existing, items: existing.so_items ?? existing.items ?? [emptyItem] }
       : { company_id: '', date: new Date().toISOString().slice(0, 10), delivery_date: '', po_reference: '', status: 'draft', items: [emptyItem] },
   })
+
+  // Re-apply existing values once companies list loads (async data timing fix)
+  useEffect(() => {
+    if (existing && companies.length > 0) {
+      reset({ ...existing, items: existing.so_items ?? existing.items ?? [emptyItem] })
+    }
+  }, [companies.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' })
   const pn = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n }
