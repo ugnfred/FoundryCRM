@@ -87,9 +87,15 @@ export default function Quotations() {
               </>
             )}
             {['sent', 'accepted'].includes(status) && (
-              <Button size="sm" variant="outline" onClick={() => convertMutation.mutate(id)}>
-                <ArrowRightCircle className="h-3 w-3 mr-1" />To SO
+              <Button size="sm" variant="outline"
+                disabled={convertMutation.isPending}
+                onClick={() => convertMutation.mutate(id)}>
+                <ArrowRightCircle className="h-3 w-3 mr-1" />
+                {convertMutation.isPending ? 'Converting…' : 'To SO'}
               </Button>
+            )}
+            {status === 'converted' && (
+              <span className="text-xs text-green-700 font-medium px-2">✓ Converted</span>
             )}
           </div>
         )

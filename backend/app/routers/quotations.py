@@ -107,7 +107,7 @@ async def update_quotation_status(
     status: str,
     user: dict = Depends(require_roles("admin", "sales")),
 ):
-    valid = {"draft", "sent", "accepted", "lost", "expired"}
+    valid = {"draft", "sent", "accepted", "lost", "expired", "converted"}
     if status not in valid:
         raise HTTPException(400, f"Status must be one of {valid}")
     db = get_db()
@@ -135,8 +135,17 @@ async def convert_to_so(
     quot = result.data
     if not quot:
         raise HTTPException(404, "Quotation not found")
+    if quot["status"] == "converted":
+        existing = db.table("sales_orders").select("so_no").eq("quotation_id", str(quotation_id)).limit(1).execute().data
+        so_no = existing[0]["so_no"] if existing else "unknown"
+        raise HTTPException(400, f"Already converted to {so_no}")
     if quot["status"] not in ("accepted", "sent"):
         raise HTTPException(400, f"Cannot convert quotation in status '{quot['status']}'")
+
+    # Idempotency guard — prevent duplicate SOs if endpoint called twice
+    existing = db.table("sales_orders").select("id, so_no").eq("quotation_id", str(quotation_id)).execute().data
+    if existing:
+        raise HTTPException(400, f"Sales Order {existing[0]['so_no']} already exists for this quotation")
 
     so_data = {
         "quotation_id": str(quotation_id),
@@ -167,7 +176,7 @@ async def convert_to_so(
     if so_items:
         db.table("so_items").insert(so_items).execute()
 
-    db.table("quotations").update({"status": "accepted"}).eq("id", str(quotation_id)).execute()
+    db.table("quotations").update({"status": "converted"}).eq("id", str(quotation_id)).execute()
     return {"so_id": so["id"], "so_no": so["so_no"]}
 
 
