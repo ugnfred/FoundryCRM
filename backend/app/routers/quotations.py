@@ -101,6 +101,22 @@ async def update_quotation(
     return await get_quotation(quotation_id, user)
 
 
+@router.patch("/{quotation_id}/status")
+async def update_quotation_status(
+    quotation_id: UUID,
+    status: str,
+    user: dict = Depends(require_roles("admin", "sales")),
+):
+    valid = {"draft", "sent", "accepted", "lost", "expired"}
+    if status not in valid:
+        raise HTTPException(400, f"Status must be one of {valid}")
+    db = get_db()
+    result = db.table("quotations").update({"status": status}).eq("id", str(quotation_id)).execute()
+    if not result.data:
+        raise HTTPException(404, "Quotation not found")
+    return {"status": status}
+
+
 @router.delete("/{quotation_id}", status_code=204)
 async def delete_quotation(
     quotation_id: UUID,

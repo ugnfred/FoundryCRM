@@ -31,7 +31,7 @@ export default function Quotations() {
   const { data = [] } = useQuery({ queryKey: ['quotations'], queryFn: quotationsApi.list })
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, row, status }) => quotationsApi.update(id, { ...row, status }),
+    mutationFn: ({ id, status }) => quotationsApi.updateStatus(id, status),
     onSuccess: (_, { status }) => {
       toast({ title: `Marked as ${status}` })
       qc.invalidateQueries(['quotations'])
@@ -72,16 +72,16 @@ export default function Quotations() {
             </Button>
 
             {status === 'draft' && (
-              <Button size="sm" variant="outline" onClick={() => statusMutation.mutate({ id, row: row.original, status: 'sent' })}>
+              <Button size="sm" variant="outline" onClick={() => statusMutation.mutate({ id, status: 'sent' })}>
                 <Send className="h-3 w-3 mr-1" />Send
               </Button>
             )}
             {status === 'sent' && (
               <>
-                <Button size="sm" variant="outline" className="text-green-700 border-green-300" onClick={() => statusMutation.mutate({ id, row: row.original, status: 'accepted' })}>
+                <Button size="sm" variant="outline" className="text-green-700 border-green-300" onClick={() => statusMutation.mutate({ id, status: 'accepted' })}>
                   <ThumbsUp className="h-3 w-3 mr-1" />Accept
                 </Button>
-                <Button size="sm" variant="outline" className="text-red-700 border-red-300" onClick={() => statusMutation.mutate({ id, row: row.original, status: 'rejected' })}>
+                <Button size="sm" variant="outline" className="text-red-700 border-red-300" onClick={() => statusMutation.mutate({ id, status: 'lost' })}>
                   <ThumbsDown className="h-3 w-3 mr-1" />Lost
                 </Button>
               </>

@@ -41,6 +41,7 @@ export const quotationsApi = {
   create: (data) => api.post('/api/v1/quotations/', data),
   update: (id, data) => api.put(`/api/v1/quotations/${id}`, data),
   delete: (id) => api.delete(`/api/v1/quotations/${id}`),
+  updateStatus: (id, status) => api.patch(`/api/v1/quotations/${id}/status`, null, { params: { status } }),
   convertToSO: (id) => api.post(`/api/v1/quotations/${id}/convert-to-so`),
   downloadPdf: (id) => api.get(`/api/v1/quotations/${id}/pdf`, { responseType: 'blob' }),
 }
