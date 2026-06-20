@@ -55,6 +55,12 @@ async def create_credit_note(
             raise HTTPException(404, "Linked invoice not found")
         if inv["status"] == "cancelled":
             raise HTTPException(400, "Cannot issue CN against a cancelled invoice")
+        existing_cns = db.table("credit_notes").select("total").eq("invoice_id", str(payload.invoice_id)).neq("status", "cancelled").execute().data or []
+        existing_total = sum(Decimal(str(r["total"])) for r in existing_cns)
+        new_total = calc["total"]
+        inv_total = Decimal(str(inv["total"]))
+        if existing_total + new_total > inv_total:
+            raise HTTPException(400, f"CN total ₹{float(new_total):.2f} exceeds invoice total ₹{float(inv_total):.2f} (already credited: ₹{float(existing_total):.2f})")
 
     cn_data = {
         "invoice_id": str(payload.invoice_id) if payload.invoice_id else None,

@@ -1,5 +1,6 @@
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, useWatch } from 'react-hook-form'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import { workOrdersApi, settingsApi, ordersApi } from '@/lib/api'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -10,7 +11,7 @@ import { useToast } from '@/components/ui/toast'
 export default function WOForm({ open, onClose }) {
   const { toast } = useToast()
   const qc = useQueryClient()
-  const { register, control, handleSubmit } = useForm({
+  const { register, control, handleSubmit, setValue } = useForm({
     defaultValues: {
       product_id: '',
       so_id: null,
@@ -21,8 +22,21 @@ export default function WOForm({ open, onClose }) {
     }
   })
 
+  const selectedSoId = useWatch({ control, name: 'so_id' })
+
   const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: settingsApi.listProducts })
   const { data: orders = [] } = useQuery({ queryKey: ['orders'], queryFn: ordersApi.list })
+
+  // Prefill product + qty when SO is selected
+  useEffect(() => {
+    if (!selectedSoId) return
+    const so = orders.find(o => o.id === selectedSoId)
+    const firstItem = so?.so_items?.[0]
+    if (firstItem) {
+      if (firstItem.product_id) setValue('product_id', firstItem.product_id)
+      if (firstItem.qty)        setValue('qty', firstItem.qty)
+    }
+  }, [selectedSoId, orders, setValue])
 
   const mutation = useMutation({
     mutationFn: (data) => workOrdersApi.create(data),
