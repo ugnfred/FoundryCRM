@@ -140,6 +140,7 @@ export const advanceReceiptsApi = {
   list:             (companyId) => api.get('/api/v1/advance-receipts/', { params: companyId ? { company_id: companyId } : {} }),
   get:              (id) => api.get(`/api/v1/advance-receipts/${id}`),
   create:           (data) => api.post('/api/v1/advance-receipts/', data),
+  receive:          (id) => api.patch(`/api/v1/advance-receipts/${id}/receive`),
   cancel:           (id) => api.patch(`/api/v1/advance-receipts/${id}/cancel`),
   availableBalance: (companyId) => api.get(`/api/v1/advance-receipts/company/${companyId}/available-balance`),
 }

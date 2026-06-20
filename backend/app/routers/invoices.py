@@ -64,7 +64,10 @@ def _update_stock(db, product_id: str, qty: Decimal, ref_id, ref_type: str, user
     last = db.table("stock_ledger").select("balance").eq("product_id", product_id).order("created_at", desc=True).limit(1).execute().data
     prev_balance = Decimal(str(last[0]["balance"])) if last else Decimal("0")
     new_balance = prev_balance + qty
-    txn_type_map = {"invoice": "sale", "grn": "grn", "adjustment": "adjustment", "opening": "opening"}
+    txn_type_map = {
+        "invoice": "sale", "grn": "grn", "adjustment": "adjustment", "opening": "opening",
+        "production": "production", "production_output": "production_output",
+    }
     txn_type = txn_type_map.get(ref_type, "adjustment")
     row = {
         "product_id": product_id,

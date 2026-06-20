@@ -548,6 +548,7 @@ function CompaniesSettings() {
                 <option value="buyer">Buyer</option><option value="supplier">Supplier</option><option value="both">Both</option>
               </select>
             </div>
+            <div className="col-span-2 space-y-1"><Label>Address</Label><Input {...register('address')} placeholder="Street address, building, area" /></div>
             <div className="col-span-2 flex justify-end"><Button type="submit" size="sm">Add</Button></div>
           </form>
         </CardContent>
@@ -560,7 +561,13 @@ function CompaniesSettings() {
           <tbody className="divide-y">
             {companies.map((c) => editId === c.id ? (
               <tr key={c.id} className="bg-blue-50">
-                <td className="px-2 py-1"><Input {...regEdit('name')} className="h-7 text-xs" /></td>
+                <td className="px-2 py-1">
+                  <Input {...regEdit('name')} className="h-7 text-xs" />
+                  <Input {...regEdit('address')} className="h-7 text-xs mt-1" placeholder="Address" />
+                  <input type="hidden" {...regEdit('city')} />
+                  <input type="hidden" {...regEdit('phone')} />
+                  <input type="hidden" {...regEdit('email')} />
+                </td>
                 <td className="px-2 py-1"><Input {...regEdit('gstin')} className="h-7 text-xs font-mono" /></td>
                 <td className="px-2 py-1"><Input {...regEdit('state_code')} className="h-7 text-xs w-16" /></td>
                 <td className="px-2 py-1">
@@ -577,7 +584,10 @@ function CompaniesSettings() {
               </tr>
             ) : (
               <tr key={c.id} className="hover:bg-gray-50">
-                <td className="px-3 py-2 font-medium">{c.name}</td>
+                <td className="px-3 py-2">
+                  <div className="font-medium">{c.name}</div>
+                  {c.address && <div className="text-xs text-gray-400 truncate max-w-xs">{c.address}</div>}
+                </td>
                 <td className="px-3 py-2 font-mono text-xs">{c.gstin}</td>
                 <td className="px-3 py-2">{c.state_code}</td>
                 <td className="px-3 py-2 capitalize">{c.type}</td>

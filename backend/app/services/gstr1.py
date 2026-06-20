@@ -90,9 +90,9 @@ def compute_gstr1(invoices: list[dict], credit_notes: list[dict]) -> dict:
             "date": cn.get("date", ""),
             "reason": cn.get("reason", ""),
             "taxable_amt": _d(cn.get("taxable_amt", 0)),
-            "cgst": _d(cn.get("cgst", 0)),
-            "sgst": _d(cn.get("sgst", 0)),
-            "igst": _d(cn.get("igst", 0)),
+            "cgst": _d(cn.get("cgst_amt", 0)),
+            "sgst": _d(cn.get("sgst_amt", 0)),
+            "igst": _d(cn.get("igst_amt", 0)),
             "total": _d(cn.get("total", 0)),
             "customer": company.get("name", ""),
             "linked_inv": (cn.get("invoices") or {}).get("inv_no", ""),
@@ -179,7 +179,7 @@ def generate_gstr1_excel(data: dict, period: str) -> bytes:
     r = 2
     for entry in data["cdnr"]:
         for cn in entry["notes"]:
-            ws3.cell(r, 1, entry["name"])
+            ws3.cell(r, 1, entry["gstin"])
             ws3.cell(r, 2, cn["customer"])
             ws3.cell(r, 3, cn["cn_no"])
             ws3.cell(r, 4, str(cn["date"]))

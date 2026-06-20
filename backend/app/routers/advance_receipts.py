@@ -61,21 +61,50 @@ async def create_advance(
         "pdc_date": str(payload.pdc_date) if payload.pdc_date else None,
         "created_by": user["id"],
     }
+    # PDC (post-dated cheque) advances stay pending until cheque date passes
+    if payload.is_pdc:
+        ar_data["status"] = "pending"
+
     result = db.table("advance_receipts").insert(jsonify(ar_data)).execute()
     ar = result.data[0]
 
-    # Post to customer ledger as a credit entry (advance received)
-    db.table("customer_ledger").insert({
-        "company_id": str(payload.company_id),
-        "doc_type": "advance",
-        "doc_no": ar["ar_no"],
-        "doc_date": str(payload.date),
-        "debit": 0,
-        "credit": float(payload.amount),
-        "notes": f"Advance receipt {ar['ar_no']}",
-    }).execute()
+    # Only post a ledger credit for advances that are actually received (not pending PDC)
+    if ar.get("status") == "received":
+        db.table("customer_ledger").insert({
+            "company_id": str(payload.company_id),
+            "doc_type": "advance",
+            "doc_no": ar["ar_no"],
+            "doc_date": str(payload.date),
+            "debit": 0,
+            "credit": float(payload.amount),
+            "notes": f"Advance receipt {ar['ar_no']}",
+        }).execute()
 
     return ar
+
+
+@router.patch("/{ar_id}/receive")
+async def receive_advance(ar_id: UUID, user: dict = Depends(require_roles("admin", "accounts"))):
+    """Mark a pending PDC advance as received (cheque cleared)."""
+    db = get_db()
+    ar = db.table("advance_receipts").select("ar_no, status, company_id, amount, date").eq("id", str(ar_id)).single().execute().data
+    if not ar:
+        raise HTTPException(404, "Advance receipt not found")
+    if ar["status"] != "pending":
+        raise HTTPException(400, f"Advance is already {ar['status']}")
+
+    db.table("advance_receipts").update({"status": "received"}).eq("id", str(ar_id)).execute()
+    # Post ledger credit now that cheque has cleared
+    db.table("customer_ledger").insert({
+        "company_id": ar["company_id"],
+        "doc_type": "advance",
+        "doc_no": ar["ar_no"],
+        "doc_date": ar["date"],
+        "debit": 0,
+        "credit": float(ar["amount"]),
+        "notes": f"Advance receipt {ar['ar_no']} (PDC cleared)",
+    }).execute()
+    return {"status": "received"}
 
 
 @router.patch("/{ar_id}/cancel")
@@ -84,11 +113,12 @@ async def cancel_advance(ar_id: UUID, user: dict = Depends(require_roles("admin"
     ar = db.table("advance_receipts").select("ar_no, status, company_id").eq("id", str(ar_id)).single().execute().data
     if not ar:
         raise HTTPException(404, "Advance receipt not found")
-    if ar["status"] != "received":
-        raise HTTPException(400, "Only received advances can be cancelled")
+    if ar["status"] not in ("received", "pending"):
+        raise HTTPException(400, "Only received or pending advances can be cancelled")
 
-    # Reverse the ledger credit
-    db.table("customer_ledger").delete().eq("doc_no", ar["ar_no"]).eq("doc_type", "advance").execute()
+    # Reverse the ledger credit if it was already received
+    if ar["status"] == "received":
+        db.table("customer_ledger").delete().eq("doc_no", ar["ar_no"]).eq("doc_type", "advance").execute()
     db.table("advance_receipts").update({"status": "cancelled"}).eq("id", str(ar_id)).execute()
     return {"status": "cancelled"}
 

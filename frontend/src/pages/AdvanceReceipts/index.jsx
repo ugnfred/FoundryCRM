@@ -4,11 +4,11 @@ import { advanceReceiptsApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/shared/DataTable'
-import { Plus, XCircle } from 'lucide-react'
+import { Plus, XCircle, CheckCircle } from 'lucide-react'
 import ARForm from './ARForm'
 import { useToast } from '@/components/ui/toast'
 
-const STATUS_COLORS = { received: 'default', applied: 'secondary', cancelled: 'destructive' }
+const STATUS_COLORS = { received: 'default', pending: 'outline', applied: 'secondary', cancelled: 'destructive' }
 const fmt = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })
 
 export default function AdvanceReceipts() {
@@ -19,6 +19,15 @@ export default function AdvanceReceipts() {
   const { data: arList = [], isLoading } = useQuery({
     queryKey: ['advance-receipts'],
     queryFn: advanceReceiptsApi.list,
+  })
+
+  const receiveMutation = useMutation({
+    mutationFn: (id) => advanceReceiptsApi.receive(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['advance-receipts'] })
+      toast({ title: 'PDC marked as received — ledger updated' })
+    },
+    onError: (e) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
   })
 
   const cancelMutation = useMutation({
@@ -54,16 +63,30 @@ export default function AdvanceReceipts() {
       header: 'Actions',
       cell: ({ row }) => {
         const ar = row.original
-        return ar.status === 'received' ? (
-          <Button size="sm" variant="outline" className="text-red-600"
-            onClick={() => {
-              if (confirm(`Cancel advance receipt ${ar.ar_no}? This will reverse the ledger entry.`)) {
-                cancelMutation.mutate(ar.id)
-              }
-            }}>
-            <XCircle className="h-3 w-3 mr-1" />Cancel
-          </Button>
-        ) : null
+        return (
+          <div className="flex gap-1">
+            {ar.status === 'pending' && (
+              <Button size="sm" variant="outline" className="text-green-600"
+                onClick={() => {
+                  if (confirm(`Mark ${ar.ar_no} as received? This will post the ledger entry.`)) {
+                    receiveMutation.mutate(ar.id)
+                  }
+                }}>
+                <CheckCircle className="h-3 w-3 mr-1" />Received
+              </Button>
+            )}
+            {(ar.status === 'received' || ar.status === 'pending') && (
+              <Button size="sm" variant="outline" className="text-red-600"
+                onClick={() => {
+                  if (confirm(`Cancel advance receipt ${ar.ar_no}?${ar.status === 'received' ? ' This will reverse the ledger entry.' : ''}`)) {
+                    cancelMutation.mutate(ar.id)
+                  }
+                }}>
+                <XCircle className="h-3 w-3 mr-1" />Cancel
+              </Button>
+            )}
+          </div>
+        )
       },
     },
   ]
