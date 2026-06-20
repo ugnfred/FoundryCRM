@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Plus, CheckCircle, Truck, Receipt, Trash2 } from 'lucide-react'
+import { Plus, CheckCircle, Truck, Receipt, Trash2, Download } from 'lucide-react'
 import { ordersApi } from '@/lib/api'
 import { formatCurrency, formatDate, statusColor } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -46,6 +46,17 @@ export default function SalesOrders() {
     onSuccess: () => { toast({ title: 'Order deleted' }); qc.invalidateQueries(['orders']) },
     onError: (e) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
   })
+
+  async function downloadPdf(so) {
+    try {
+      const blob = await ordersApi.downloadPdf(so.id)
+      const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }))
+      const a = document.createElement('a'); a.href = url; a.download = `${so.so_no}.pdf`; a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' })
+    }
+  }
 
   async function handleCreateInvoice(so) {
     try {
@@ -94,6 +105,9 @@ export default function SalesOrders() {
             {canWrite && (
               <Button size="sm" variant="ghost" onClick={() => { setEditing(row.original); setOpen(true) }}>Edit</Button>
             )}
+            <Button size="sm" variant="ghost" onClick={() => downloadPdf(row.original)}>
+              <Download className="h-3 w-3" />
+            </Button>
             {canWrite && status === 'draft' && (
               <Button size="sm" variant="outline" className="text-blue-700 border-blue-300"
                 disabled={statusMutation.isPending}

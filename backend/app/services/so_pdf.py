@@ -1,4 +1,4 @@
-"""Quotation PDF — matches the Tax Invoice layout exactly."""
+"""Sales Order PDF — matches the Tax Invoice and Quotation layout."""
 from io import BytesIO
 from decimal import Decimal
 from reportlab.lib.pagesizes import A4
@@ -6,7 +6,6 @@ from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
 
-# Re-use all helpers and styles from the invoice PDF module
 from app.services.pdf import (
     _s, _money, _get_company_settings, _build_styles,
     _seller_lines, _bill_to_lines, _fetch_logo,
@@ -15,7 +14,7 @@ from app.services.pdf import (
 )
 
 
-def generate_quotation_pdf(quotation: dict) -> bytes:
+def generate_so_pdf(so: dict) -> bytes:
     buf = BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4,
@@ -26,10 +25,10 @@ def generate_quotation_pdf(quotation: dict) -> bytes:
     story = []
 
     our      = _get_company_settings()
-    customer = quotation.get("companies") or {}
+    customer = so.get("companies") or {}
 
     # ── 1. Title bar ────────────────────────────────────────────────────────
-    title_para = Paragraph("QUOTATION", st["title"])
+    title_para = Paragraph("SALES ORDER", st["title"])
 
     logo_el = _fetch_logo(_s(our.get("logo_url"))) if _s(our.get("logo_url")) else None
     if logo_el:
@@ -38,8 +37,8 @@ def generate_quotation_pdf(quotation: dict) -> bytes:
             colWidths=[38 * mm, USABLE_W - 76 * mm, 38 * mm],
         )
         title_row.setStyle(TableStyle([
-            ("VALIGN",  (0, 0), (-1, -1), "MIDDLE"),
-            ("ALIGN",   (1, 0), (1,  0),  "CENTER"),
+            ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN",         (1, 0), (1,  0),  "CENTER"),
             ("TOPPADDING",    (0, 0), (-1, -1), 0),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
         ]))
@@ -49,21 +48,22 @@ def generate_quotation_pdf(quotation: dict) -> bytes:
 
     story.append(Spacer(1, 3 * mm))
 
-    # ── 2. Seller + Quotation meta header box ────────────────────────────────
+    # ── 2. Seller + SO meta header box ───────────────────────────────────────
     LEFT_W  = USABLE_W * 0.56
     RIGHT_W = USABLE_W - LEFT_W
 
-    def _quot_meta_lines(q: dict, st: dict) -> list:
+    def _so_meta_lines(s: dict, st: dict) -> list:
         lines = []
         def row(label, value):
             if value:
                 lines.append(Paragraph(f"<b>{label}:</b> {value}", st["r_normal"]))
-        row("Quotation No", _s(q.get("quot_no")))
-        row("Date",         _s(q.get("date")))
-        row("Valid Until",  _s(q.get("valid_until")) or "—")
+        row("Order No",      _s(s.get("so_no")))
+        row("Date",          _s(s.get("date")))
+        row("Delivery Date", _s(s.get("delivery_date")) or "—")
+        row("PO Reference",  _s(s.get("po_reference")))
         return lines
 
-    header_data  = [[_seller_lines(our, st), _quot_meta_lines(quotation, st)]]
+    header_data  = [[_seller_lines(our, st), _so_meta_lines(so, st)]]
     header_table = Table(header_data, colWidths=[LEFT_W, RIGHT_W])
     header_table.setStyle(TableStyle([
         ("VALIGN",        (0, 0), (-1, -1), "TOP"),
@@ -96,7 +96,7 @@ def generate_quotation_pdf(quotation: dict) -> bytes:
     col_widths  = [7*mm, 50*mm, 15*mm, 12*mm, 10*mm, 18*mm, 20*mm, 12*mm, 21*mm]
 
     rows = [col_headers]
-    for idx, item in enumerate(quotation.get("quotation_items", []), 1):
+    for idx, item in enumerate(so.get("so_items", []), 1):
         qty      = Decimal(str(item.get("qty")      or 0))
         rate     = Decimal(str(item.get("rate")     or 0))
         gst_rate = Decimal(str(item.get("gst_rate") or 0))
@@ -143,9 +143,9 @@ def generate_quotation_pdf(quotation: dict) -> bytes:
     def _trow(label, value, ls="normal", vs="r_normal"):
         return [Paragraph(label, st[ls]), Paragraph(value, st[vs])]
 
-    taxable_amt = Decimal(str(quotation.get("taxable_amt") or 0))
-    total_gst   = Decimal(str(quotation.get("total_gst")   or 0))
-    total       = Decimal(str(quotation.get("total")       or 0))
+    taxable_amt = Decimal(str(so.get("taxable_amt") or 0))
+    total_gst   = Decimal(str(so.get("total_gst")   or 0))
+    total       = Decimal(str(so.get("total")        or 0))
 
     totals_rows = [
         _trow("Taxable Amount", _money(taxable_amt)),
@@ -172,19 +172,19 @@ def generate_quotation_pdf(quotation: dict) -> bytes:
     story.append(totals_table)
 
     # ── 6. Terms & Notes ────────────────────────────────────────────────────
-    if _s(quotation.get("terms")) or _s(quotation.get("notes")):
+    if _s(so.get("terms")) or _s(so.get("notes")):
         story.append(Spacer(1, 6 * mm))
         story.append(HRFlowable(width="100%", thickness=0.5, color=GREY_BORDER))
         story.append(Spacer(1, 3 * mm))
-        if _s(quotation.get("terms")):
+        if _s(so.get("terms")):
             story.append(Paragraph("<b>Terms &amp; Conditions</b>", st["bold"]))
             story.append(Spacer(1, 2 * mm))
-            story.append(Paragraph(_s(quotation["terms"]), st["small"]))
-        if _s(quotation.get("notes")):
+            story.append(Paragraph(_s(so["terms"]), st["small"]))
+        if _s(so.get("notes")):
             story.append(Spacer(1, 4 * mm))
             story.append(Paragraph("<b>Notes</b>", st["bold"]))
             story.append(Spacer(1, 2 * mm))
-            story.append(Paragraph(_s(quotation["notes"]), st["small"]))
+            story.append(Paragraph(_s(so["notes"]), st["small"]))
 
     # ── 7. Footer ────────────────────────────────────────────────────────────
     story.append(Spacer(1, 6 * mm))
@@ -197,12 +197,13 @@ def generate_quotation_pdf(quotation: dict) -> bytes:
         "________________________________<br/>"
         "<b>Authorised Signatory</b>"
     )
-    validity_text = (
-        f"This quotation is valid until <b>{_s(quotation.get('valid_until')) or '—'}</b>.<br/>"
-        "Prices are subject to change after the validity date."
+    delivery = _s(so.get("delivery_date")) or "as agreed"
+    footer_left = (
+        f"Expected delivery: <b>{delivery}</b>.<br/>"
+        "This is a confirmed order — please arrange dispatch accordingly."
     )
 
-    footer_data  = [[Paragraph(validity_text, st["footer"]), Paragraph(sig_text, st["small"])]]
+    footer_data  = [[Paragraph(footer_left, st["footer"]), Paragraph(sig_text, st["small"])]]
     footer_table = Table(footer_data, colWidths=[USABLE_W * 0.62, USABLE_W * 0.38])
     footer_table.setStyle(TableStyle([
         ("VALIGN",        (0, 0), (-1, -1), "BOTTOM"),

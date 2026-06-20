@@ -55,6 +55,7 @@ export const ordersApi = {
   updateStatus: (id, status) => api.patch(`/api/v1/orders/${id}/status`, null, { params: { status } }),
   delete: (id) => api.delete(`/api/v1/orders/${id}`),
   getInvoicePrefill: (id) => api.get(`/api/v1/orders/${id}/invoice-prefill`),
+  downloadPdf: (id) => api.get(`/api/v1/orders/${id}/pdf`, { responseType: 'blob' }),
 }
 
 // ── Invoices ─────────────────────────────────────────────

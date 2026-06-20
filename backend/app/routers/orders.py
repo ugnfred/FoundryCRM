@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from uuid import UUID
 from decimal import Decimal
 from app.auth import get_current_user, require_roles
@@ -126,6 +127,25 @@ async def delete_order(
         raise HTTPException(400, f"Cannot delete a {so['status']} order — cancel it first")
     db.table("so_items").delete().eq("so_id", str(so_id)).execute()
     db.table("sales_orders").delete().eq("id", str(so_id)).execute()
+
+
+@router.get("/{so_id}/pdf")
+async def download_so_pdf(
+    so_id: UUID,
+    user: dict = Depends(get_current_user),
+):
+    from app.services.so_pdf import generate_so_pdf
+    db = get_db()
+    result = db.table("sales_orders").select("*, companies(*), so_items(*)").eq("id", str(so_id)).single().execute()
+    if not result.data:
+        raise HTTPException(404, "Sales order not found")
+    pdf_bytes = generate_so_pdf(result.data)
+    filename = f"{result.data['so_no']}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/{so_id}/invoice-prefill")
