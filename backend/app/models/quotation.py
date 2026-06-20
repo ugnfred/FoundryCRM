@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from uuid import UUID
 from datetime import date
 from decimal import Decimal
@@ -33,6 +33,11 @@ class QuotationIn(BaseModel):
     notes: str | None = None
     terms: str | None = None
     items: list[QuotationItemIn]
+
+    @field_validator('valid_until', mode='before')
+    @classmethod
+    def empty_str_to_none(cls, v):
+        return None if v == '' else v
 
 
 class QuotationOut(BaseModel):

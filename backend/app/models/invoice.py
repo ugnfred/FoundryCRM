@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from uuid import UUID
 from datetime import date
 from decimal import Decimal
@@ -37,6 +37,11 @@ class InvoiceIn(BaseModel):
     status: InvoiceStatus = "draft"
     notes: str | None = None
     items: list[InvoiceItemIn]
+
+    @field_validator('due_date', 'so_id', mode='before')
+    @classmethod
+    def empty_str_to_none(cls, v):
+        return None if v == '' else v
 
 
 class InvoiceOut(BaseModel):
