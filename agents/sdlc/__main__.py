@@ -7,6 +7,8 @@
     python -m sdlc architect        # technical design
     python -m sdlc dev "US-001"     # Developer<->QA loop for one story
     python -m sdlc uat              # UAT with human sign-off
+    python -m sdlc ba-test          # BA flow tester — live HTTP tests against deployed API
+    python -m sdlc ba-test <url>    # override API base URL for this run
 """
 from __future__ import annotations
 
@@ -39,6 +41,9 @@ def main(argv: list[str]) -> int:
             orch.stage_dev_qa(" ".join(rest))
         elif cmd == "uat":
             orch.stage_uat()
+        elif cmd == "ba-test":
+            from .ba_flow_tester import main as ba_main
+            return ba_main(rest)
         else:
             print(f"Unknown command: {cmd}\n")
             print(__doc__)
