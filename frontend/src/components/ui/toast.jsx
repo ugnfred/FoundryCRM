@@ -24,11 +24,13 @@ export function Toaster() {
           key={t.id}
           onClick={() => remove(t.id)}
           className={`flex cursor-pointer flex-col gap-1 rounded-lg border px-4 py-3 shadow-lg transition-all ${
-            t.variant === 'destructive' ? 'bg-destructive text-destructive-foreground' : 'bg-white text-foreground'
+            t.variant === 'destructive'
+              ? 'bg-gray-900 border-l-4 border-red-500 border-r-0 border-t-0 border-b-0 text-white'
+              : 'bg-white text-foreground border'
           }`}
         >
           {t.title && <p className="text-sm font-semibold">{t.title}</p>}
-          {t.description && <p className="text-xs text-muted-foreground">{t.description}</p>}
+          {t.description && <p className={`text-xs ${t.variant === 'destructive' ? 'text-gray-300' : 'text-muted-foreground'}`}>{t.description}</p>}
         </div>
       ))}
     </div>

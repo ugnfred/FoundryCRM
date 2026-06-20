@@ -111,9 +111,7 @@ async def update_quotation_status(
     if status not in valid:
         raise HTTPException(400, f"Status must be one of {valid}")
     db = get_db()
-    result = db.table("quotations").update({"status": status}).eq("id", str(quotation_id)).execute()
-    if not result.data:
-        raise HTTPException(404, "Quotation not found")
+    db.table("quotations").update({"status": status}).eq("id", str(quotation_id)).execute()
     return {"status": status}
 
 
