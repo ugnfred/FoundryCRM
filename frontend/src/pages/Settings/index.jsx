@@ -326,7 +326,7 @@ function UsersSettings() {
               <div className="space-y-1">
                 <Label>Role <span className="text-red-500">*</span></Label>
                 <select {...register('role', { required: true })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm">
-                  {['admin','sales','accounts','dispatch'].map((r) => <option key={r} value={r}>{r}</option>)}
+                  {['admin','sales','accounts','dispatch','production'].map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
               <div className="col-span-2 flex justify-end gap-2">
@@ -366,7 +366,7 @@ function UsersSettings() {
                       onChange={(e) => roleMutation.mutate({ id: u.id, role: e.target.value })}
                       className="h-8 rounded border border-input text-sm px-2 disabled:opacity-50"
                     >
-                      {['admin','sales','accounts','dispatch'].map((r) => <option key={r} value={r}>{r}</option>)}
+                      {['admin','sales','accounts','dispatch','production'].map((r) => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </td>
                   <td className="px-3 py-2">

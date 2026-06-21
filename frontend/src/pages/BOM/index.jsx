@@ -6,8 +6,10 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Edit } from 'lucide-react'
 import BOMEditor from './BOMEditor'
+import { useHasRole } from '@/hooks/useAuth'
 
 export default function BOM() {
+  const canWrite = useHasRole('admin', 'production')
   const [productFilter, setProductFilter] = useState('all')
   const [editorOpen, setEditorOpen] = useState(false)
   const [editBOM, setEditBOM] = useState(null)
@@ -25,9 +27,11 @@ export default function BOM() {
           <h1 className="text-2xl font-bold">Bill of Materials</h1>
           <p className="text-slate-500 text-sm">Component requirements per finished product — versioned</p>
         </div>
-        <Button onClick={() => { setEditBOM(null); setEditorOpen(true) }}>
-          <Plus className="h-4 w-4 mr-2" />New BOM
-        </Button>
+        {canWrite && (
+          <Button onClick={() => { setEditBOM(null); setEditorOpen(true) }}>
+            <Plus className="h-4 w-4 mr-2" />New BOM
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center gap-3 p-3 bg-white border rounded-lg">
@@ -62,7 +66,7 @@ export default function BOM() {
                   v{bom.version} {bom.is_active ? '(Active)' : '(Inactive)'}
                 </Badge>
               </div>
-              {bom.is_active && (
+              {canWrite && bom.is_active && (
                 <Button size="sm" variant="outline" onClick={() => { setEditBOM(bom); setEditorOpen(true) }}>
                   <Edit className="h-3 w-3 mr-1" />New Version
                 </Button>

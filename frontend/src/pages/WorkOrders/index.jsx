@@ -9,6 +9,7 @@ import { Plus, CheckCircle, X } from 'lucide-react'
 import WOForm from './WOForm'
 import WODrawerContent from './WODrawerContent'
 import { useToast } from '@/components/ui/toast'
+import { useHasRole } from '@/hooks/useAuth'
 
 const STATUS_COLORS = { open: 'secondary', in_progress: 'default', done: 'outline', cancelled: 'destructive' }
 const STATUS_LABELS = { open: 'Open', in_progress: 'In Progress', done: 'Done', cancelled: 'Cancelled' }
@@ -16,6 +17,7 @@ const STATUS_LABELS = { open: 'Open', in_progress: 'In Progress', done: 'Done', 
 export default function WorkOrders() {
   const { toast } = useToast()
   const qc = useQueryClient()
+  const canWrite = useHasRole('admin', 'production')
   const [formOpen, setFormOpen] = useState(false)
   const [selectedId, setSelectedId] = useState(null)
   const [statusFilter, setStatusFilter] = useState('')
@@ -84,7 +86,7 @@ export default function WorkOrders() {
   const hasShortage = woDetail?.bom_headers?.bom_items?.some(i => i.shortage > 0)
   const canComplete = status === 'open' || status === 'in_progress'
 
-  const drawerPrimary = canComplete ? {
+  const drawerPrimary = canWrite && canComplete ? {
     label: completeMutation.isPending ? 'Completing…' : hasShortage ? 'Cannot Complete (Shortage)' : 'Mark Complete',
     icon: CheckCircle,
     onClick: () => {
@@ -95,14 +97,14 @@ export default function WorkOrders() {
     disabled: hasShortage || completeMutation.isPending,
   } : undefined
 
-  const drawerSecondary = [
+  const drawerSecondary = canWrite ? [
     status === 'open' ? {
       label: 'Start',
       onClick: () => statusMutation.mutate({ id: selectedId, status: 'in_progress' }),
     } : null,
-  ].filter(Boolean)
+  ].filter(Boolean) : []
 
-  const drawerDestructive = status === 'open' ? {
+  const drawerDestructive = canWrite && status === 'open' ? {
     label: 'Cancel',
     icon: X,
     onClick: () => { if (confirm('Cancel this work order?')) statusMutation.mutate({ id: selectedId, status: 'cancelled' }) },
@@ -115,9 +117,11 @@ export default function WorkOrders() {
           <h1 className="text-2xl font-bold">Work Orders</h1>
           <p className="text-slate-500 text-sm">Manufacturing jobs — linked to BOM, drives stock on completion</p>
         </div>
-        <Button onClick={() => setFormOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />New Work Order
-        </Button>
+        {canWrite && (
+          <Button onClick={() => setFormOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />New Work Order
+          </Button>
+        )}
       </div>
 
       <div className="flex gap-2">

@@ -10,22 +10,22 @@ import { useAuth } from '@/hooks/useAuth'
 import { settingsApi } from '@/lib/api'
 
 const nav = [
-  { to: '/',                  label: 'Dashboard',       icon: LayoutDashboard, roles: ['admin','sales','accounts','dispatch'] },
-  { to: '/quotations',        label: 'Quotations',      icon: FileText,        roles: ['admin','sales','accounts'] },
-  { to: '/sales-orders',      label: 'Sales Orders',    icon: ShoppingCart,    roles: ['admin','sales','accounts'] },
-  { to: '/invoices',          label: 'Invoices',        icon: Receipt,         roles: ['admin','sales','accounts'] },
-  { to: '/credit-notes',      label: 'Credit Notes',    icon: FileMinus,       roles: ['admin','accounts'] },
-  { to: '/proforma',          label: 'Proforma Invoice', icon: ClipboardList,  roles: ['admin','sales','accounts'] },
-  { to: '/delivery-challans', label: 'Delivery Challan', icon: Truck,          roles: ['admin','sales','accounts','dispatch'] },
-  { to: '/work-orders',       label: 'Work Orders',      icon: HardHat,        roles: ['admin','accounts'] },
-  { to: '/advance-receipts',  label: 'Advance Receipts', icon: Banknote,       roles: ['admin','accounts'] },
-  { to: '/bom',               label: 'Bill of Materials', icon: GitBranch,     roles: ['admin','accounts'] },
-  { to: '/purchase-orders',   label: 'Purchase Orders', icon: Package,         roles: ['admin','accounts'] },
-  { to: '/grns',              label: 'GRN',             icon: PackageCheck,    roles: ['admin','accounts'] },
-  { to: '/inventory',         label: 'Inventory',       icon: Warehouse,       roles: ['admin','sales','accounts','dispatch'] },
-  { to: '/einvoice',          label: 'E-Invoice',       icon: Zap,             roles: ['admin','accounts'] },
-  { to: '/reports',           label: 'Reports',         icon: BarChart3,       roles: ['admin','accounts'] },
-  { to: '/settings',          label: 'Settings',        icon: Settings,        roles: ['admin'] },
+  { to: '/',                  label: 'Dashboard',        icon: LayoutDashboard, roles: ['admin','sales','accounts','dispatch','production'] },
+  { to: '/quotations',        label: 'Quotations',       icon: FileText,        roles: ['admin','sales'] },
+  { to: '/proforma',          label: 'Proforma Invoice', icon: ClipboardList,   roles: ['admin','sales'] },
+  { to: '/sales-orders',      label: 'Sales Orders',     icon: ShoppingCart,    roles: ['admin','sales','accounts'] },
+  { to: '/invoices',          label: 'Invoices',         icon: Receipt,         roles: ['admin','accounts'] },
+  { to: '/credit-notes',      label: 'Credit Notes',     icon: FileMinus,       roles: ['admin','accounts'] },
+  { to: '/advance-receipts',  label: 'Advance Receipts', icon: Banknote,        roles: ['admin','accounts'] },
+  { to: '/delivery-challans', label: 'Delivery Challan', icon: Truck,           roles: ['admin','sales','dispatch'] },
+  { to: '/work-orders',       label: 'Work Orders',      icon: HardHat,         roles: ['admin','production'] },
+  { to: '/bom',               label: 'Bill of Materials', icon: GitBranch,      roles: ['admin','production'] },
+  { to: '/purchase-orders',   label: 'Purchase Orders',  icon: Package,        roles: ['admin','accounts'] },
+  { to: '/grns',              label: 'GRN',              icon: PackageCheck,   roles: ['admin','accounts'] },
+  { to: '/inventory',         label: 'Inventory',        icon: Warehouse,      roles: ['admin','sales','accounts','dispatch','production'] },
+  { to: '/einvoice',          label: 'E-Invoice',        icon: Zap,            roles: ['admin','accounts'] },
+  { to: '/reports',           label: 'Reports',          icon: BarChart3,      roles: ['admin','sales','accounts'] },
+  { to: '/settings',          label: 'Settings',         icon: Settings,       roles: ['admin'] },
 ]
 
 export default function Sidebar({ onNavClick }) {
