@@ -8,13 +8,13 @@ import { Plus, Edit } from 'lucide-react'
 import BOMEditor from './BOMEditor'
 
 export default function BOM() {
-  const [productFilter, setProductFilter] = useState('all')
+  const [productFilter, setProductFilter] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
   const [editBOM, setEditBOM] = useState(null)
 
   const { data: allBoms = [], isLoading } = useQuery({
     queryKey: ['bom', productFilter],
-    queryFn: () => bomApi.list(productFilter === 'all' ? undefined : productFilter),
+    queryFn: () => bomApi.list(productFilter || undefined),
   })
   const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: settingsApi.listProducts })
 
@@ -37,7 +37,7 @@ export default function BOM() {
             <SelectValue placeholder="All products" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All products</SelectItem>
+            <SelectItem value="">All products</SelectItem>
             {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
           </SelectContent>
         </Select>
