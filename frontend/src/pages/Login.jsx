@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Navigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import useAuthStore from '@/store/authStore'
 import { Button } from '@/components/ui/button'
@@ -9,14 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function Login() {
   const { login } = useAuth()
-  const navigate = useNavigate()
   const { user, loading } = useAuthStore()
-
-  if (!loading && user) return <Navigate to="/" replace />
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  // Let React re-render naturally after store update — no imperative navigate()
+  if (!loading && user) return <Navigate to="/" replace />
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -24,7 +24,8 @@ export default function Login() {
     setSubmitting(true)
     try {
       await login(email, password)
-      navigate('/')
+      // Navigation is handled by the <Navigate> above reacting to store update.
+      // Calling navigate('/') here would race with React Router's render cycle.
     } catch (err) {
       setError(err.message)
     } finally {
