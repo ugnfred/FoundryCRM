@@ -4,7 +4,7 @@ import { workOrdersApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/shared/DataTable'
-import { Plus, CheckCircle, AlertTriangle } from 'lucide-react'
+import { Plus, CheckCircle, X } from 'lucide-react'
 import WOForm from './WOForm'
 import WODetail from './WODetail'
 import { useToast } from '@/components/ui/toast'
@@ -65,7 +65,7 @@ export default function WorkOrders() {
       cell: ({ row }) => {
         const wo = row.original
         return (
-          <div className="flex gap-1 flex-wrap">
+          <div className="flex gap-1 items-center">
             {wo.status === 'open' && (
               <Button size="sm" variant="outline"
                 onClick={() => statusMutation.mutate({ id: wo.id, status: 'in_progress' })}>
@@ -86,13 +86,14 @@ export default function WorkOrders() {
               </Button>
             )}
             {wo.status === 'open' && (
-              <Button size="sm" variant="outline" className="text-red-600"
+              <Button size="sm" variant="ghost" className="text-red-500 h-7 w-7 p-0"
+                title="Cancel work order"
                 onClick={() => {
                   if (confirm('Cancel this work order?')) {
                     statusMutation.mutate({ id: wo.id, status: 'cancelled' })
                   }
                 }}>
-                Cancel
+                <X className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>

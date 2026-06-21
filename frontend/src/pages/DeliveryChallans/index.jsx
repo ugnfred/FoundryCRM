@@ -4,7 +4,7 @@ import { deliveryChallansApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/shared/DataTable'
-import { Plus, Download, Truck } from 'lucide-react'
+import { Plus, Download, Truck, X } from 'lucide-react'
 import DCForm from './DCForm'
 import { useToast } from '@/components/ui/toast'
 
@@ -70,7 +70,7 @@ export default function DeliveryChallans() {
       cell: ({ row }) => {
         const dc = row.original
         return (
-          <div className="flex gap-1 flex-wrap">
+          <div className="flex gap-1 items-center">
             {dc.status === 'draft' && (
               <Button size="sm" variant="outline" onClick={() => { setEditDC(dc); setFormOpen(true) }}>Edit</Button>
             )}
@@ -86,11 +86,12 @@ export default function DeliveryChallans() {
               <Download className="h-3 w-3" />
             </Button>
             {dc.status === 'draft' && (
-              <Button size="sm" variant="outline" className="text-red-600"
+              <Button size="sm" variant="ghost" className="text-red-500 h-7 w-7 p-0"
+                title="Cancel challan"
                 onClick={() => {
                   if (confirm('Cancel this challan?')) cancelMutation.mutate(dc.id)
                 }}>
-                Cancel
+                <X className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>

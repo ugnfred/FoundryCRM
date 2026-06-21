@@ -43,7 +43,7 @@ export default function AdvanceReceipts() {
     { accessorKey: 'ar_no', header: 'AR No', cell: ({ getValue }) => <span className="font-mono font-semibold">{getValue()}</span> },
     { accessorKey: 'companies.name', header: 'Customer' },
     { accessorKey: 'date', header: 'Date' },
-    { accessorKey: 'amount', header: 'Amount (â‚¹)', cell: ({ getValue }) => <span className="font-mono text-green-700 font-semibold">â‚¹{fmt(getValue())}</span> },
+    { accessorKey: 'amount', header: 'Amount (₹)', cell: ({ getValue }) => <span className="font-mono text-green-700 font-semibold">₹{fmt(getValue())}</span> },
     { accessorKey: 'payment_mode', header: 'Mode', cell: ({ getValue }) => <span className="capitalize">{getValue()?.replace('_', ' ')}</span> },
     {
       accessorKey: 'is_pdc',

@@ -4,7 +4,7 @@ import { proformaApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/shared/DataTable'
-import { Plus, FileText, ArrowRightCircle, Download, Send } from 'lucide-react'
+import { Plus, ArrowRightCircle, Download, Send, X } from 'lucide-react'
 import PIForm from './PIForm'
 import { useToast } from '@/components/ui/toast'
 
@@ -65,7 +65,7 @@ export default function ProformaInvoices() {
     { accessorKey: 'companies.name', header: 'Customer' },
     { accessorKey: 'date', header: 'Date' },
     { accessorKey: 'validity_date', header: 'Valid Until', cell: ({ getValue }) => getValue() || 'â€”' },
-    { accessorKey: 'total', header: 'Total (â‚¹)', cell: ({ getValue }) => <span className="font-mono">â‚¹{fmt(getValue())}</span> },
+    { accessorKey: 'total', header: 'Total (₹)', cell: ({ getValue }) => <span className="font-mono">₹{fmt(getValue())}</span> },
     {
       accessorKey: 'status',
       header: 'Status',
@@ -77,7 +77,7 @@ export default function ProformaInvoices() {
       cell: ({ row }) => {
         const pi = row.original
         return (
-          <div className="flex gap-1 flex-wrap">
+          <div className="flex gap-1 items-center">
             {pi.status === 'draft' && (
               <Button size="sm" variant="outline" onClick={() => { setEditPI(pi); setFormOpen(true) }}>
                 Edit
@@ -105,13 +105,14 @@ export default function ProformaInvoices() {
               <Download className="h-3 w-3" />
             </Button>
             {pi.status === 'draft' && (
-              <Button size="sm" variant="outline" className="text-red-600"
+              <Button size="sm" variant="ghost" className="text-red-500 h-7 w-7 p-0"
+                title="Cancel proforma"
                 onClick={() => {
                   if (confirm('Cancel this proforma invoice?')) {
                     statusMutation.mutate({ id: pi.id, status: 'cancelled' })
                   }
                 }}>
-                Cancel
+                <X className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
