@@ -11,6 +11,16 @@ import PIDrawerContent from './PIDrawerContent'
 import { useToast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
+// Fetches full PI detail (with proforma_items) only when a row is selected
+function usePIDetail(id) {
+  return useQuery({
+    queryKey: ['proforma', id],
+    queryFn: () => proformaApi.get(id),
+    enabled: !!id,
+    staleTime: 30_000,
+  })
+}
+
 const STATUS_COLORS = {
   draft: 'secondary',
   sent: 'default',
@@ -39,7 +49,12 @@ export default function ProformaInvoices() {
     queryFn: proformaApi.list,
   })
 
-  const selectedPI = useMemo(() => piList.find(p => p.id === selectedId), [piList, selectedId])
+  // Full detail (with line items) — fetched on demand when drawer opens
+  const { data: piDetail, isLoading: detailLoading } = usePIDetail(selectedId)
+
+  // Use full detail if available, fall back to list row for instant header render
+  const listPI = useMemo(() => piList.find(p => p.id === selectedId), [piList, selectedId])
+  const selectedPI = piDetail ?? listPI
 
   const convertMutation = useMutation({
     mutationFn: (id) => proformaApi.convert(id),
@@ -187,8 +202,9 @@ export default function ProformaInvoices() {
         destructiveAction={drawerDestructive}
         secondaryActions={drawerSecondary}
         primaryAction={drawerPrimary}
+        isLoading={detailLoading}
       >
-        <PIDrawerContent pi={pi} />
+        <PIDrawerContent pi={selectedPI} />
       </DetailDrawer>
 
       {formOpen && (
