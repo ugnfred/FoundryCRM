@@ -1,8 +1,8 @@
 # Product Requirements Document — Foundry ERP
 **Role:** Product Manager
-**Version:** 1.0
-**Date:** 2026-06-14
-**Status:** DRAFT — awaiting owner approval
+**Version:** 1.2
+**Date:** 2026-06-21
+**Status:** APPROVED — Phase 2 in progress (BOM + Work Orders shipped)
 
 ---
 
@@ -51,6 +51,8 @@ Foundry ERP is a cloud-native, India-GST-compliant ERP system purpose-built for 
 
 | Feature | Evidence (file) |
 |---|---|
+| BOM (Bill of Materials) — versioned per product, CRUD, active/inactive | `frontend/src/pages/BOM/`, `backend/app/routers/bom.py`, `supabase/migrations/012_bom.sql` |
+| Work Orders — linked to SO+BOM; start/complete triggers stock deduction | `frontend/src/pages/WorkOrders/`, `backend/app/routers/work_orders.py`, `supabase/migrations/013_work_orders.sql` |
 | Quotation create / edit / PDF / status flow (Draft→Sent→Accept/Lost) | `frontend/src/pages/Quotations/`, `backend/app/routers/quotations.py` |
 | Convert quotation → Sales Order (copies all line items) | `quotations.py:111` `convert_to_so` |
 | Sales Order create / edit / status buttons (Confirm / Dispatch) | `frontend/src/pages/SalesOrders/index.jsx` |
@@ -101,8 +103,8 @@ Foundry ERP is a cloud-native, India-GST-compliant ERP system purpose-built for 
 |---|---|
 | **Credit Notes / Debit Notes** | GST-mandated for sales returns and purchase returns |
 | **Reports module** | GST-R1 summary, GSTR-3B, receivables aging, payables aging, P&L summary |
-| **BOM (Bill of Materials)** | Foundry needs to define what raw materials go into each product |
-| **Work Orders / Production Orders** | Track shop-floor manufacturing jobs against customer orders |
+| ~~**BOM (Bill of Materials)**~~ | ✅ Shipped — see HAVE list |
+| ~~**Work Orders / Production Orders**~~ | ✅ Shipped — see HAVE list |
 | **Delivery Challan** | Document for goods dispatched before invoicing (common in manufacturing) |
 | **Proforma Invoice** | Pre-invoice for advance payment requests |
 | **Recurring invoices** | For retainer/AMC-type billing |
@@ -136,7 +138,7 @@ Foundry ERP is a cloud-native, India-GST-compliant ERP system purpose-built for 
 | F-08 | Proforma Invoice | ✅ MVP | **Must** | Standard in Indian B2B; customers ask before paying advance |
 | F-09 | Email PDF share | ✅ MVP | **Must** | Without email, staff copy PDF and mail manually — defeats purpose |
 | F-10 | Advance / PDC tracking | — | **Should** | Very common in foundry; partial orders paid upfront |
-| F-11 | BOM (Bill of Materials) | — | **Should** | Differentiator for manufacturing; links product to raw materials |
+| F-11 | BOM (Bill of Materials) | ✅ Done | ~~Should~~ **SHIPPED** | Versioned BOM per product; backend + frontend + tests complete |
 | F-12 | HSN-rate master (auto-fill GST%) | — | **Should** | Reduces data entry errors; currently user types GST% manually |
 | F-13 | Bulk CSV import | — | **Should** | Every new customer needs to onboard existing data |
 | F-14 | GSTR-3B summary | — | **Should** | Companion to GSTR-1; used for monthly tax payment |
@@ -144,7 +146,7 @@ Foundry ERP is a cloud-native, India-GST-compliant ERP system purpose-built for 
 | F-16 | Audit log | — | **Should** | Compliance and dispute resolution |
 | F-17 | Mobile-responsive UI | — | **Should** | Dispatch staff on-the-go; not full app, just key pages |
 | F-18 | Notifications (overdue, low stock) | — | **Could** | Nice-to-have; email/in-app alerts |
-| F-19 | Work Orders / Production | — | **Could** | Valuable but scope-intensive; phase 2 |
+| F-19 | Work Orders / Production | ✅ Done | ~~Could~~ **SHIPPED** | WO list, create, start, complete with BOM-driven stock deduction |
 | F-20 | Payment gateway (Razorpay) | — | **Could** | Online collection; needs merchant account setup |
 | F-21 | Customer self-service portal | — | **Could** | Phase 3 feature |
 | F-22 | Multi-branch / Multi-GSTIN | — | **Won't** (v1) | Significant schema change; not needed for initial customers |
@@ -216,4 +218,30 @@ Foundry ERP is a cloud-native, India-GST-compliant ERP system purpose-built for 
 
 ---
 
-*End of PRD v1.0 — awaiting owner review and approval before BA begins BRD.*
+---
+
+## 9. Phase 2 Delivery Summary (v1.2 — 2026-06-21)
+
+**Shipped since PRD v1.0:**
+
+| Feature | Status | Notes |
+|---|---|---|
+| BOM (F-11) | ✅ Done | Fixed Radix SelectItem crash; full CRUD + versioning |
+| Work Orders (F-19) | ✅ Done | List, create, start, complete — BOM-driven stock deduction on completion |
+| Credit Notes | ✅ Done | |
+| Proforma Invoice | ✅ Done | |
+| Delivery Challan | ✅ Done | |
+| Advance Receipts | ✅ Done | |
+| GRN list + sequential numbering | ✅ Done | |
+| Reports (GSTR-1, Aging) | ✅ Done | |
+| E2E test suite (50 tests) | ✅ Done | Playwright; 57/93 pass on full suite; near 100% per-spec |
+
+**Remaining for Phase 3:**
+- Email / WhatsApp PDF sharing (F-09)
+- Payment gateway — Razorpay (F-20)
+- HSN rate master auto-fill (F-12)
+- Bulk CSV import (F-13)
+- Mobile-responsive UI hardening (F-17)
+- Audit log (F-16)
+
+*End of PRD v1.2*

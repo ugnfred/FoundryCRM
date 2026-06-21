@@ -88,10 +88,10 @@ export default function WOForm({ open, onClose }) {
               <label className="text-sm font-medium">Sales Order (optional)</label>
               <Controller control={control} name="so_id"
                 render={({ field }) => (
-                  <Select value={field.value || ''} onValueChange={v => field.onChange(v || null)}>
+                  <Select value={field.value || 'none'} onValueChange={v => field.onChange(v === 'none' ? null : v)}>
                     <SelectTrigger><SelectValue placeholder="Link to SO" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">— None —</SelectItem>
+                      <SelectItem value="none">— None —</SelectItem>
                       {orders.filter(o => o.status !== 'cancelled').map(o => (
                         <SelectItem key={o.id} value={o.id}>{o.so_no} — {o.companies?.name}</SelectItem>
                       ))}

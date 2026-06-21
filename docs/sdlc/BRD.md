@@ -1,9 +1,9 @@
 # Business Requirements Document — Foundry ERP
 **Role:** Business Analyst
-**Version:** 1.0
-**Date:** 2026-06-14
-**Status:** DRAFT — awaiting owner approval before development begins
-**Based on:** PRD v1.0 (approved 2026-06-14) + CLARIFICATIONS.md (answered 2026-06-14)
+**Version:** 1.1
+**Date:** 2026-06-21
+**Status:** UPDATED — BOM + Work Orders implemented; requirements amended to reflect delivery
+**Based on:** PRD v1.2 (approved 2026-06-21) + CLARIFICATIONS.md (answered 2026-06-14)
 
 ---
 
@@ -75,8 +75,8 @@ Email PDF sharing is deferred to Phase 3 backlog.
 | BR-009 | Sales staff shall be able to generate a Delivery Challan (DC-XXXX) concurrently with or before an invoice, with its own PDF — no GST amounts shown. | F-07 |
 | BR-010 | Sales staff shall be able to generate a Proforma Invoice (PI-XXXX) convertible to a Tax Invoice in one click; it shall not affect stock or customer balance. | F-08 |
 | BR-011 | Accounts staff shall be able to record advance payments per customer as AR-XXXX documents and apply them against future invoices. | F-10 |
-| BR-012 | The system shall allow definition of a Bill of Materials (BOM) per product, listing raw material components and quantities. | F-11 |
-| BR-013 | Production staff shall be able to create Work Orders linked to a Sales Order, track manufacturing progress, and trigger raw material consumption from stock. | F-19 |
+| BR-012 | ✅ **DONE** The system shall allow definition of a Bill of Materials (BOM) per product, listing raw material components and quantities. | F-11 |
+| BR-013 | ✅ **DONE** Production staff shall be able to create Work Orders linked to a Sales Order, track manufacturing progress, and trigger raw material consumption from stock. | F-19 |
 | BR-014 | Key pages (Dashboard, Invoice list, Stock check) shall be usable on a mobile browser without horizontal scrolling or unreadable text. | F-17 |
 | BR-015 | Admin shall be able to create new user accounts with a set password and deactivate existing users without deleting any historical records. | User Mgmt |
 
@@ -182,24 +182,52 @@ Email PDF sharing is deferred to Phase 3 backlog.
 | FR-047 | The backend reads this setting (stored in company_settings) and selects the correct NIC base URL. |
 | FR-048 | Switching to Production shows a confirmation dialog warning that real IRNs will be generated. |
 
-### 4.11 BOM (Bill of Materials)
+### 4.11 BOM (Bill of Materials) ✅ IMPLEMENTED
 
-| ID | Requirement |
-|---|---|
-| FR-049 | Admin can define a BOM for any product: list of raw material products + qty per unit of finished product. |
-| FR-050 | BOM is versioned (v1, v2…); only one version is active at a time. |
-| FR-051 | BOM list page: product name, version, number of components, active status. |
-| FR-052 | When a Work Order is created, the BOM is used to estimate raw material requirements. |
+| ID | Requirement | Status | Implementation Note |
+|---|---|---|---|
+| FR-049 | Admin can define a BOM for any product: list of raw material products + qty per unit of finished product. | ✅ Done | `POST /api/v1/bom/` — `BOMIn` model with `product_id` + `items[]`; role-guarded to admin+accounts |
+| FR-050 | BOM is versioned (v1, v2…); only one version is active at a time. | ✅ Done | `bom_headers.version` INT; `PUT /bom/{id}` creates v+1 and deactivates old; `UNIQUE(product_id, version)` DB constraint |
+| FR-051 | BOM list page: product name, version, number of components, active status. | ✅ Done | `GET /api/v1/bom/` with optional `product_id` filter; frontend shows version badge (Active/Inactive), component table |
+| FR-052 | When a Work Order is created, the BOM is used to estimate raw material requirements. | ✅ Done | `create_work_order` auto-links active BOM via `bom_headers.is_active = True`; detail view shows required vs on-hand per component |
 
-### 4.12 Work Orders
+**Additional FR discovered during implementation:**
 
-| ID | Requirement |
-|---|---|
-| FR-053 | A Work Order (WO-XXXX) is created from a confirmed Sales Order line item. |
-| FR-054 | WO fields: SO reference, product, qty to produce, start date, target date, assigned to (user), status (open/in-progress/done/cancelled). |
-| FR-055 | WO shows BOM-estimated raw material qty needed vs current stock (shortage alert). |
-| FR-056 | On WO completion, raw material consumption is deducted from stock ledger (txn_type = "production"). |
-| FR-057 | WO list page with status filter; WO detail shows progress, BOM consumption. |
+| ID | Requirement | Status |
+|---|---|---|
+| FR-049a | BOM product filter dropdown on list page | ✅ Done |
+| FR-049b | "New Version" button on active BOM re-opens BOMEditor with existing items pre-filled | ✅ Done |
+| FR-049c | BOM creation deactivates all prior versions for that product atomically | ✅ Done |
+
+**Design decisions:**
+- Fixed BOM per product (not per-order custom) — confirmed by owner during development
+- All products (not just "raw materials") can be BOM components; the foundry selects correct ones manually
+- No hard-delete on BOMs (soft-delete via `is_active = False` and version history)
+
+### 4.12 Work Orders ✅ IMPLEMENTED
+
+| ID | Requirement | Status | Implementation Note |
+|---|---|---|---|
+| FR-053 | A Work Order (WO-XXXX) is created from a confirmed Sales Order line item. | ✅ Done | WOForm supports optional `so_id`; auto-prefills product+qty from SO's first item |
+| FR-054 | WO fields: SO reference, product, qty to produce, start date, target date, assigned to (user), status (open/in-progress/done/cancelled). | ✅ Done | `work_orders` table; `WOIn` Pydantic model; all fields present |
+| FR-055 | WO shows BOM-estimated raw material qty needed vs current stock (shortage alert). | ✅ Done | `get_work_order` augments each BOM item with `required_qty`, `on_hand`, `shortage`; WODetail shows red badge + shortage banner |
+| FR-056 | On WO completion, raw material consumption is deducted from stock ledger (txn_type = "production"). | ✅ Done | `complete_work_order` endpoint; checks stock before deducting; raises HTTP 400 on shortage; also adds `production_output` entry for finished product |
+| FR-057 | WO list page with status filter; WO detail shows progress, BOM consumption. | ✅ Done | Filter buttons (All / Open / In Progress / Done / Cancelled); WO# is clickable to open WODetail modal |
+
+**Additional FR discovered during implementation:**
+
+| ID | Requirement | Status |
+|---|---|---|
+| FR-057a | WO list shows WO#, Product, Qty, SO Ref, Target Date (overdue in red), Status | ✅ Done |
+| FR-057b | "Start" button transitions open → in_progress | ✅ Done |
+| FR-057c | "Complete" button (with confirm dialog) disabled when stock shortage exists | ✅ Done |
+| FR-057d | "Cancel" button for open WOs | ✅ Done |
+| FR-057e | Stock `production_output` txn creates finished-product stock entry on WO completion | ✅ Done |
+
+**Design decisions:**
+- WO number series: `WO-1001, WO-1002, …` via DB sequence `wo_seq` (start 1001)
+- If no BOM exists for a product, WO still works — only `production_output` stock txn fires (no raw material deduction)
+- Stock shortage check is enforced server-side: `POST /work-orders/{id}/complete` returns HTTP 400 with component name + deficit if stock is insufficient
 
 ### 4.13 Mobile-Responsive UI
 
@@ -250,8 +278,8 @@ Email PDF sharing is deferred to Phase 3 backlog.
 | Delivery Challan | `delivery_challans`, `dc_items`, seq `dc_seq` (8001) | POST /delivery-challans, GET /delivery-challans, GET /delivery-challans/{id}/pdf |
 | GRN | Add seq `grn_seq` (9001) to existing `grn` table; add `grn_no` column | GET /grns (new list endpoint) |
 | Reports | No new tables (reads from existing) | GET /reports/gstr1?month=&year=, GET /reports/gstr1/json, GET /reports/gstr3b, GET /reports/aging/receivables, GET /reports/aging/payables |
-| BOM | `bom_headers`, `bom_items` | POST /bom, GET /bom, PUT /bom/{id} |
-| Work Orders | `work_orders`, seq `wo_seq` (1001), add `txn_type='production'` to stock_ledger enum | POST /work-orders, GET /work-orders, PUT /work-orders/{id}/complete |
+| BOM | ✅ `bom_headers`, `bom_items` — migration 012_bom.sql | ✅ GET/POST /bom, PUT /bom/{id}, GET /bom/active |
+| Work Orders | ✅ `work_orders`, seq `wo_seq` (1001), `txn_type` enum updated — migration 013, 015 | ✅ GET/POST /work-orders, PATCH /work-orders/{id}/status, POST /work-orders/{id}/complete |
 | E-Invoice Env | Add `einvoice_env` column to `company_settings` | (settings endpoint updated) |
 | User Management | (use Supabase Admin API) | POST /settings/users, DELETE /settings/users/{id} |
 
@@ -377,4 +405,30 @@ Email PDF sharing is deferred to Phase 3 backlog.
 
 ---
 
-*End of BRD v1.0 — awaiting owner approval before Scrum Master begins backlog.*
+---
+
+## 9. BOM + Work Orders — Acceptance Criteria (v1.1)
+
+The following criteria must pass before the BOM/Work Orders feature set is marked UAT-ready:
+
+### BOM
+- [ ] Admin can create a BOM for a product with at least 2 components
+- [ ] BOM list shows version badge (Active) and component table
+- [ ] "New Version" on an active BOM creates v+1 and deactivates v
+- [ ] Only one BOM version is active per product at any time
+- [ ] BOM filter by product works on list page
+- [ ] No Radix UI crash on BOM list page (SelectItem value fix applied)
+
+### Work Orders
+- [ ] WO can be created standalone (no SO link) with product + qty
+- [ ] WO can be created from a Sales Order (SO# pre-links)
+- [ ] If an active BOM exists for the product, it auto-links on WO creation
+- [ ] WO detail shows BOM components with Required / On Hand / Shortage columns
+- [ ] Shortage alert banner appears when any component has insufficient stock
+- [ ] "Mark Complete" is disabled when shortage exists
+- [ ] Completing a WO deducts raw material stock (production txn_type)
+- [ ] Completing a WO adds finished product to stock (production_output txn_type)
+- [ ] WO status filter (All / Open / In Progress / Done / Cancelled) works on list
+- [ ] Cancelling a WO sets status = cancelled (no stock movement)
+
+*End of BRD v1.1*
