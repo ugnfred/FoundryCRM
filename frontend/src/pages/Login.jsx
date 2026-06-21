@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import useAuthStore from '@/store/authStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,6 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
+  const { user, loading } = useAuthStore()
+
+  if (!loading && user) return <Navigate to="/" replace />
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
