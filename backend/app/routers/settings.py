@@ -65,7 +65,7 @@ async def create_user(
     payload: CreateUserIn,
     user: dict = Depends(require_roles("admin")),
 ):
-    valid_roles = {"admin", "sales", "accounts", "dispatch"}
+    valid_roles = {"admin", "sales", "accounts", "dispatch", "production"}
     if payload.role not in valid_roles:
         raise HTTPException(400, f"Role must be one of {valid_roles}")
     if len(payload.password) < 8:
@@ -100,7 +100,7 @@ async def update_user_role(
     role: str,
     user: dict = Depends(require_roles("admin")),
 ):
-    valid_roles = {"admin", "sales", "accounts", "dispatch"}
+    valid_roles = {"admin", "sales", "accounts", "dispatch", "production"}
     if role not in valid_roles:
         raise HTTPException(400, f"Role must be one of {valid_roles}")
     db = get_db()
