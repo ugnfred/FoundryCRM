@@ -120,9 +120,10 @@ async def delete_order(
     user: dict = Depends(require_roles("admin")),
 ):
     db = get_db()
-    so = db.table("sales_orders").select("status").eq("id", str(so_id)).single().execute().data
-    if not so:
+    so_rows = db.table("sales_orders").select("status").eq("id", str(so_id)).execute().data
+    if not so_rows:
         raise HTTPException(404, "Sales order not found")
+    so = so_rows[0]
     if so["status"] not in ("draft", "cancelled"):
         raise HTTPException(400, f"Cannot delete a {so['status']} order — cancel it first")
     db.table("so_items").delete().eq("so_id", str(so_id)).execute()
@@ -136,11 +137,11 @@ async def download_so_pdf(
 ):
     from app.services.so_pdf import generate_so_pdf
     db = get_db()
-    result = db.table("sales_orders").select("*, companies(*), so_items(*)").eq("id", str(so_id)).single().execute()
+    result = db.table("sales_orders").select("*, companies(*), so_items(*)").eq("id", str(so_id)).execute()
     if not result.data:
         raise HTTPException(404, "Sales order not found")
-    pdf_bytes = generate_so_pdf(result.data)
-    filename = f"{result.data['so_no']}.pdf"
+    pdf_bytes = generate_so_pdf(result.data[0])
+    filename = f"{result.data[0]['so_no']}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -155,9 +156,10 @@ async def get_invoice_prefill(
 ):
     """Return SO data shaped for pre-filling the invoice form."""
     db = get_db()
-    so = db.table("sales_orders").select("*, companies(state_code), so_items(*)").eq("id", str(so_id)).single().execute().data
-    if not so:
+    so_rows = db.table("sales_orders").select("*, companies(state_code), so_items(*)").eq("id", str(so_id)).execute().data
+    if not so_rows:
         raise HTTPException(404, "Sales order not found")
+    so = so_rows[0]
 
     items = [
         {
