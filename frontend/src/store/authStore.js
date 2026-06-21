@@ -1,6 +1,9 @@
 import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
 
+// Prevents onAuthStateChange from interfering while login() is in flight
+let _loginInProgress = false
+
 const useAuthStore = create((set, get) => ({
   user: null,
   profile: null,
@@ -21,13 +24,17 @@ const useAuthStore = create((set, get) => ({
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // login() handles its own state — skip to avoid race conditions
+      if (_loginInProgress) return
+
       if (session?.user) {
-        // Keep loading spinner until profile is ready — prevents white-page flash
-        // where user is set but profile/role is still null.
+        const current = get()
+        // Already have this user+profile set by login() — nothing to do
+        if (current.user?.id === session.user.id && current.profile) return
+
+        // Page refresh / cross-tab / token refresh path
         set({ loading: true })
         fetchProfile(session.user.id).then(profile => {
-          // Bail if a logout raced past this fetch
-          if (!get().loading) return
           if (profile?.is_active === false) {
             supabase.auth.signOut()
             set({ user: null, profile: null, loading: false })
@@ -44,15 +51,20 @@ const useAuthStore = create((set, get) => ({
   },
 
   login: async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
-    // Check inactive before onAuthStateChange finishes — gives immediate error message.
-    const profile = await fetchProfile(data.user.id)
-    if (profile?.is_active === false) {
-      await supabase.auth.signOut()
-      throw new Error('Your account has been deactivated. Contact your administrator.')
+    _loginInProgress = true
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
+      const profile = await fetchProfile(data.user.id)
+      if (profile?.is_active === false) {
+        await supabase.auth.signOut()
+        throw new Error('Your account has been deactivated. Contact your administrator.')
+      }
+      // Set user + profile together so the app renders correctly on first paint
+      set({ user: data.user, profile, loading: false })
+    } finally {
+      _loginInProgress = false
     }
-    // State will be set by the onAuthStateChange handler above.
   },
 
   logout: async () => {
