@@ -11,7 +11,7 @@ test.describe('Credit Notes', () => {
   test('page loads at /credit-notes', async ({ page }) => {
     await page.goto('/credit-notes', { waitUntil: 'networkidle' })
     await expect(
-      page.locator('table, text=No credit notes, text=No records')
+      page.locator('table').or(page.getByText('No credit notes')).first()
     ).toBeVisible({ timeout: 10_000 })
   })
 

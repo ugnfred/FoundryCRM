@@ -15,7 +15,7 @@ test.describe('E-Invoice', () => {
   test('page loads at /einvoice', async ({ page }) => {
     await page.goto('/einvoice', { waitUntil: 'networkidle' })
     await expect(
-      page.locator('table, text=No invoices, text=E-Invoice, text=IRN')
+      page.locator('table').or(page.getByText('No invoices'))
     ).toBeVisible({ timeout: 10_000 })
   })
 
@@ -25,8 +25,9 @@ test.describe('E-Invoice', () => {
     await expect(body).not.toContainText('Something went wrong')
 
     // Either table rows or an empty message
-    const tableOrEmpty = page.locator('tbody tr, text=/no invoices|no eligible/i')
-    await expect(tableOrEmpty.first()).toBeVisible({ timeout: 10_000 })
+    await expect(
+      page.locator('table').or(page.getByText(/no invoices|no eligible/i)).first()
+    ).toBeVisible({ timeout: 10_000 })
   })
 
   test('Generate IRN button exists (does not need to fire real API)', async ({ page }) => {

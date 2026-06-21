@@ -6,8 +6,8 @@ test.use({ storageState: './fixtures/auth.json' })
 /**
  * 11-advance-receipts.spec.js — Advance Receipts flows
  *
- * Tests PDC creation (status=pending), Receive action (status=received),
- * bank transfer (status=received immediately), and Cancel.
+ * ARForm uses Radix UI Select (not native <select>). SelectContent renders in a
+ * portal outside the dialog DOM, so [role="option"] must be scoped to `page`, not `dialog`.
  */
 
 const today = new Date().toISOString().slice(0, 10)
@@ -20,10 +20,11 @@ async function openNewAdvanceForm(page) {
   return dialog
 }
 
-async function selectFirstCustomer(dialog) {
+async function selectFirstCustomer(page, dialog) {
   const customerTrigger = dialog.getByRole('combobox').first()
   await customerTrigger.click()
-  const firstOption = dialog.locator('[role="option"]').first()
+  // Radix SelectContent renders in a portal outside dialog — scope to page
+  const firstOption = page.locator('[role="option"]').first()
   await expect(firstOption).toBeVisible({ timeout: 5_000 })
   await firstOption.click()
 }
@@ -31,9 +32,9 @@ async function selectFirstCustomer(dialog) {
 test.describe('Advance Receipts — page', () => {
   test('page loads at /advance-receipts', async ({ page }) => {
     await page.goto('/advance-receipts', { waitUntil: 'networkidle' })
-    await expect(page.getByText('Advance Receipts')).toBeVisible()
+    await expect(page.locator('h1').filter({ hasText: 'Advance Receipts' }).first()).toBeVisible()
     await expect(
-      page.locator('table, text=No advance receipts yet')
+      page.locator('table').or(page.getByText('No advance receipts yet')).first()
     ).toBeVisible({ timeout: 10_000 })
   })
 })
@@ -45,7 +46,7 @@ test.describe('Advance Receipts — PDC flow', () => {
 
   test('create PDC advance — status shows pending', async ({ page }) => {
     const dialog = await openNewAdvanceForm(page)
-    await selectFirstCustomer(dialog)
+    await selectFirstCustomer(page, dialog)
 
     // Date
     await dialog.locator('input[type="date"]').first().fill(today)
@@ -56,7 +57,8 @@ test.describe('Advance Receipts — PDC flow', () => {
     // Switch to cheque mode
     const modeSelect = dialog.getByRole('combobox').nth(1)
     await modeSelect.click()
-    const chequeOption = dialog.locator('[role="option"]').filter({ hasText: /cheque/i })
+    // Portal renders outside dialog
+    const chequeOption = page.locator('[role="option"]').filter({ hasText: /cheque/i })
     if (await chequeOption.isVisible()) {
       await chequeOption.click()
     }
@@ -106,7 +108,6 @@ test.describe('Advance Receipts — PDC flow', () => {
     await expect(page.locator('text=PDC marked as received')).toBeVisible({ timeout: 8_000 })
 
     // Row should now show "received" status
-    // (it may have scrolled/re-sorted — just check the badge appears somewhere)
     await expect(page.locator('text=received').first()).toBeVisible({ timeout: 8_000 })
   })
 })
@@ -115,7 +116,7 @@ test.describe('Advance Receipts — bank transfer', () => {
   test('bank transfer advance status shows received immediately', async ({ page }) => {
     await page.goto('/advance-receipts', { waitUntil: 'networkidle' })
     const dialog = await openNewAdvanceForm(page)
-    await selectFirstCustomer(dialog)
+    await selectFirstCustomer(page, dialog)
 
     await dialog.locator('input[type="date"]').first().fill(today)
     await dialog.locator('input[type="number"]').fill('2000')
@@ -126,7 +127,8 @@ test.describe('Advance Receipts — bank transfer', () => {
     // It should already say BANK TRANSFER or similar
     if (modeText && !/bank/i.test(modeText)) {
       await modeTrigger.click()
-      const bankOption = dialog.locator('[role="option"]').filter({ hasText: /bank/i }).first()
+      // Portal renders outside dialog
+      const bankOption = page.locator('[role="option"]').filter({ hasText: /bank/i }).first()
       if (await bankOption.isVisible()) await bankOption.click()
     }
 

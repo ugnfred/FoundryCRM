@@ -15,36 +15,31 @@ async function openNewInvoiceForm(page) {
 }
 
 async function fillBasicInvoiceForm(page, dialog) {
-  // Customer
-  const customerCombo = dialog.getByRole('combobox').first()
-  await customerCombo.click()
-  await dialog.locator('[role="option"]').first().click()
+  // Wait for API data to populate selects
+  await page.waitForLoadState('networkidle').catch(() => {})
+
+  // Customer — native HTML <select>
+  await dialog.locator('select').first().selectOption({ index: 1 })
 
   // Invoice date
   const dateInputs = dialog.locator('input[type="date"]')
   await dateInputs.first().fill(new Date().toISOString().slice(0, 10))
   // Leave Due Date empty to test it's accepted
 
-  // Add item
-  const addItemBtn = dialog.getByRole('button', { name: /add item|add line/i })
-  if (await addItemBtn.isVisible()) await addItemBtn.click()
-
-  // Product
-  const productCombo = dialog.locator('[role="combobox"]').last()
-  await productCombo.click()
-  const firstOption = dialog.locator('[role="option"]').first()
-  await expect(firstOption).toBeVisible({ timeout: 5_000 })
-  await firstOption.click()
+  // Product — native <select> in item row
+  await dialog.locator('select').last().selectOption({ index: 1 })
 
   // Qty
   await dialog.locator('input[type="number"]').first().fill('1')
+  // Rate — second number input (product base_rate may be 0 in test data)
+  await dialog.locator('input[type="number"]').nth(1).fill('1000')
 }
 
 test.describe('Invoices — page', () => {
   test('invoices page loads', async ({ page }) => {
     await page.goto('/invoices', { waitUntil: 'networkidle' })
     await expect(
-      page.locator('table, text=No invoices yet')
+      page.locator('table').or(page.getByText('No invoices yet')).first()
     ).toBeVisible({ timeout: 10_000 })
   })
 })
@@ -92,17 +87,29 @@ test.describe('Invoices — payments', () => {
   })
 
   test('record full payment sets Balance Due to zero', async ({ page }) => {
-    // Find an unpaid invoice
-    const unpaidRow = page.locator('tbody tr').filter({ hasText: /unpaid|draft|overdue/i }).first()
-      .or(page.locator('tbody tr').filter({ hasNotText: /paid/i }).first())
+    // Find an unpaid invoice that has a positive balance
+    const allRows = page.locator('tbody tr')
+    let targetRow = null
+    const count = await allRows.count()
+    for (let i = 0; i < Math.min(count, 20); i++) {
+      const row = allRows.nth(i)
+      const payBtn = row.getByRole('button', { name: /pay/i })
+      if (!(await payBtn.isVisible())) continue
+      // Check the row has a non-zero amount (any cell with a digit 1-9 in the amount column)
+      const amountCells = row.locator('td').filter({ hasText: /[₹]/ }).filter({ hasNotText: /₹0\.00/ })
+      if (await amountCells.count() > 0) {
+        targetRow = row
+        break
+      }
+    }
 
-    if (!(await unpaidRow.isVisible())) {
-      test.skip(true, 'No unpaid invoice available')
+    if (!targetRow) {
+      test.skip(true, 'No unpaid invoice with positive balance available')
       return
     }
 
     // Click "Pay" button
-    await unpaidRow.getByRole('button', { name: /pay/i }).click()
+    await targetRow.getByRole('button', { name: /pay/i }).click()
 
     const payDialog = page.locator('[role="dialog"]')
     await expect(payDialog).toBeVisible({ timeout: 8_000 })
@@ -128,19 +135,32 @@ test.describe('Invoices — payments', () => {
   })
 
   test('partial payment — balance shows remaining amount', async ({ page }) => {
-    // Find an invoice with a known amount
-    const unpaidRow = page.locator('tbody tr').filter({ hasNotText: /\bpaid\b/i }).first()
+    // Find an unpaid invoice with a positive balance
+    const allRows = page.locator('tbody tr')
+    let unpaidRow = null
+    const count = await allRows.count()
+    for (let i = 0; i < Math.min(count, 20); i++) {
+      const row = allRows.nth(i)
+      const payBtn = row.getByRole('button', { name: /pay/i })
+      if (!(await payBtn.isVisible())) continue
+      const amountCells = row.locator('td').filter({ hasText: /[₹]/ }).filter({ hasNotText: /₹0\.00/ })
+      if (await amountCells.count() > 0) {
+        unpaidRow = row
+        break
+      }
+    }
 
-    if (!(await unpaidRow.isVisible())) {
-      test.skip(true, 'No unpaid invoice for partial payment test')
+    if (!unpaidRow) {
+      test.skip(true, 'No unpaid invoice with positive balance for partial payment test')
       return
     }
 
-    await unpaidRow.getByRole('button', { name: /pay/i }).click()
+    const payBtn = unpaidRow.getByRole('button', { name: /pay/i })
+    await payBtn.click()
     const payDialog = page.locator('[role="dialog"]')
     await expect(payDialog).toBeVisible({ timeout: 8_000 })
 
-    // Enter a partial amount
+    // Enter a partial amount (clear and fill)
     const amountInput = payDialog.locator('input[type="number"]').first()
     await amountInput.fill('100')
 
@@ -153,7 +173,6 @@ test.describe('Invoices — payments', () => {
     await expect(payDialog).not.toBeVisible({ timeout: 8_000 })
 
     // The balance column should not be 0 (still has a remaining balance)
-    // We check the row still exists with a non-zero balance
     const balanceCells = page.locator('tbody tr td').filter({ hasText: /[1-9]/ })
     await expect(balanceCells.first()).toBeVisible({ timeout: 5_000 })
   })
@@ -171,16 +190,20 @@ test.describe('Invoices — PDF download', () => {
       return
     }
 
-    const downloadPromise = page.waitForEvent('download', { timeout: 20_000 })
-
-    // Download icon — last icon button in the row
+    // Last icon button in the row is the PDF download button
     const iconButtons = firstRow.locator('button').filter({ has: page.locator('svg') })
     const count = await iconButtons.count()
-    await iconButtons.nth(count - 1).click()
+    if (count === 0) {
+      test.skip(true, 'No icon buttons in first invoice row')
+      return
+    }
 
-    const download = await downloadPromise
-    expect(download.suggestedFilename()).toMatch(/\.pdf$/i)
-    expect(await download.failure()).toBeNull()
+    // Verify PDF API returns 200 (blob URL downloads don't fire browser download event in headless)
+    const [response] = await Promise.all([
+      page.waitForResponse(r => r.url().includes('/invoices/') && r.url().includes('/pdf') && r.ok(), { timeout: 20_000 }),
+      iconButtons.nth(count - 1).click(),
+    ])
+    expect(response.ok()).toBe(true)
   })
 })
 

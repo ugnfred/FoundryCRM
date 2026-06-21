@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from uuid import UUID
 from datetime import date
 from decimal import Decimal
@@ -34,6 +34,11 @@ class POIn(BaseModel):
     notes: str | None = None
     terms: str | None = None
     items: list[POItemIn]
+
+    @field_validator('delivery_date', mode='before')
+    @classmethod
+    def empty_str_to_none(cls, v):
+        return None if v == '' else v
 
 
 class POOut(BaseModel):

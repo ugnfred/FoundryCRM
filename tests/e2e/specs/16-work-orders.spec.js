@@ -11,7 +11,7 @@ test.describe('Work Orders', () => {
   test('page loads at /work-orders', async ({ page }) => {
     await page.goto('/work-orders', { waitUntil: 'networkidle' })
     await expect(
-      page.locator('table, text=No work orders, text=Work Orders')
+      page.locator('table').or(page.getByText('No work orders')).first()
     ).toBeVisible({ timeout: 10_000 })
   })
 

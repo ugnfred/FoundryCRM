@@ -13,7 +13,7 @@ test.describe('Proforma Invoices', () => {
   test('page loads at /proforma', async ({ page }) => {
     await page.goto('/proforma', { waitUntil: 'networkidle' })
     await expect(
-      page.locator('table, text=No proforma, text=No records')
+      page.locator('table').or(page.getByText('No proforma')).first()
     ).toBeVisible({ timeout: 10_000 })
   })
 

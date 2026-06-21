@@ -5,6 +5,9 @@ test.use({ storageState: './fixtures/auth.json' })
 
 /**
  * 02-settings.spec.js — Settings page: Products, Companies, Company Settings
+ *
+ * The Settings forms use <Label> + <Input> WITHOUT htmlFor/id pairing, so
+ * getByLabel() doesn't work — use input[name="..."] selectors instead.
  */
 
 // Unique suffix to avoid collisions across runs
@@ -31,13 +34,13 @@ test.describe('Settings — Products tab', () => {
   test('create a new product', async ({ page }) => {
     const productName = `E2E Product ${RUN_ID}`
 
-    // Fill the Add Product form
-    await page.getByLabel('Name *').fill(productName)
-    await page.getByLabel('HSN Code *').fill('7325')
-    await page.getByLabel('UOM').fill('NOS')
-    await page.getByLabel('Base Rate').fill('500')
-    await page.getByLabel('GST %').fill('18')
-    await page.getByLabel('Category').fill('Test')
+    // Fill the Add Product form — use input[name] since Labels lack htmlFor
+    await page.locator('input[name="name"]').fill(productName)
+    await page.locator('input[name="hsn_code"]').fill('7325')
+    await page.locator('input[name="uom"]').fill('NOS')
+    await page.locator('input[name="base_rate"]').fill('500')
+    await page.locator('input[name="gst_rate"]').fill('18')
+    await page.locator('input[name="category"]').fill('Test')
 
     // Submit
     await page.getByRole('button', { name: 'Add' }).click()
@@ -91,10 +94,11 @@ test.describe('Settings — Customers tab', () => {
   test('create a customer company', async ({ page }) => {
     const companyName = `E2E Customer ${RUN_ID}`
 
-    await page.getByLabel('Name *').fill(companyName)
-    await page.getByLabel('GSTIN').fill('27ABCDE1234F1Z5')
-    await page.getByLabel('State Code *').fill('27')
-    await page.getByLabel('City').fill('Mumbai')
+    // Use input[name] since Labels lack htmlFor
+    await page.locator('input[name="name"]').fill(companyName)
+    await page.locator('input[name="gstin"]').fill('27ABCDE1234F1Z5')
+    await page.locator('input[name="state_code"]').fill('27')
+    await page.locator('input[name="city"]').fill('Mumbai')
     // Type select defaults to "buyer" — leave as is
 
     await page.getByRole('button', { name: 'Add' }).click()
@@ -104,8 +108,8 @@ test.describe('Settings — Customers tab', () => {
   })
 
   test('address field is present in the add form', async ({ page }) => {
-    // The Add Company form has an Address input
-    await expect(page.getByLabel('Address')).toBeVisible()
+    // The Add Company form has an Address input with name="address"
+    await expect(page.locator('input[name="address"]')).toBeVisible()
   })
 })
 
@@ -118,10 +122,11 @@ test.describe('Settings — Company Settings tab', () => {
 
   test('structured address fields are present', async ({ page }) => {
     await page.goto('/settings', { waitUntil: 'networkidle' })
-    await expect(page.getByLabel(/Address Line 1/i)).toBeVisible()
-    await expect(page.getByLabel(/Address Line 2/i)).toBeVisible()
-    await expect(page.getByLabel('City')).toBeVisible()
-    await expect(page.getByLabel('Pincode')).toBeVisible()
+    // Use input[name] since Labels lack htmlFor
+    await expect(page.locator('input[name="address_line1"]')).toBeVisible()
+    await expect(page.locator('input[name="address_line2"]')).toBeVisible()
+    await expect(page.locator('input[name="city"]')).toBeVisible()
+    await expect(page.locator('input[name="pincode"]')).toBeVisible()
   })
 
   test('save company settings — no "None" appears after save', async ({ page }) => {
@@ -130,7 +135,8 @@ test.describe('Settings — Company Settings tab', () => {
     // Wait for form to be populated from API
     await page.waitForLoadState('networkidle')
 
-    const nameInput = page.getByLabel(/Company Name/i).first()
+    // Use input[name="name"] since Labels lack htmlFor
+    const nameInput = page.locator('input[name="name"]').first()
     await expect(nameInput).toBeVisible()
 
     // Only submit if form is enabled (admin role)

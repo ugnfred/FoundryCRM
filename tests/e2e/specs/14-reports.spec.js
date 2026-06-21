@@ -13,7 +13,7 @@ test.use({ storageState: './fixtures/auth.json' })
 test.describe('Reports — landing page', () => {
   test('reports page loads and shows report cards', async ({ page }) => {
     await page.goto('/reports', { waitUntil: 'networkidle' })
-    await expect(page.getByText('Reports')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Reports', level: 1 }).or(page.getByRole('heading', { name: 'Reports' })).first()).toBeVisible()
     // The 4 report cards
     await expect(page.getByText('GSTR-1')).toBeVisible()
     await expect(page.getByText('GSTR-3B')).toBeVisible()
@@ -50,7 +50,7 @@ test.describe('Reports — GSTR-1', () => {
       // Wait for the loading spinner to disappear or table/message to appear
       await page.waitForLoadState('networkidle')
       await expect(
-        page.locator('table, text=/no data|no records|no invoices/i')
+        page.locator('table').or(page.getByText(/no data|no records|no invoices/i)).first()
       ).toBeVisible({ timeout: 15_000 })
     }
   })
@@ -84,8 +84,13 @@ test.describe('Reports — Receivables Aging', () => {
   test('receivables aging page loads and shows data or empty state', async ({ page }) => {
     await page.goto('/reports/receivables-aging', { waitUntil: 'networkidle' })
     await expect(page.locator('body')).not.toContainText('Something went wrong')
+    const generateBtn = page.getByRole('button', { name: /generate|load|fetch/i })
+    if (await generateBtn.isVisible()) {
+      await generateBtn.click()
+      await page.waitForLoadState('networkidle')
+    }
     await expect(
-      page.locator('table, text=/no receivables|no data|aging/i')
+      page.locator('table').or(page.getByText(/no receivables|no data|receivables aging/i)).first()
     ).toBeVisible({ timeout: 15_000 })
   })
 
@@ -102,8 +107,14 @@ test.describe('Reports — Payables Aging', () => {
   test('payables aging page loads without error', async ({ page }) => {
     await page.goto('/reports/payables-aging', { waitUntil: 'networkidle' })
     await expect(page.locator('body')).not.toContainText('Something went wrong')
+    // Page shows a "Generate" button before data is fetched
+    const generateBtn = page.getByRole('button', { name: /generate|load|fetch/i })
+    if (await generateBtn.isVisible()) {
+      await generateBtn.click()
+      await page.waitForLoadState('networkidle')
+    }
     await expect(
-      page.locator('table, text=/no payables|no data|aging/i')
+      page.locator('table').or(page.getByText(/no payables|no data|payables aging/i)).first()
     ).toBeVisible({ timeout: 15_000 })
   })
 

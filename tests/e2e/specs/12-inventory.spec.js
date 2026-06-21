@@ -11,7 +11,7 @@ test.describe('Inventory', () => {
   test('page loads at /inventory', async ({ page }) => {
     await page.goto('/inventory', { waitUntil: 'networkidle' })
     await expect(
-      page.locator('table, text=No stock, text=No inventory, text=No records')
+      page.locator('table').or(page.getByText('No stock')).first()
     ).toBeVisible({ timeout: 10_000 })
   })
 
@@ -19,7 +19,7 @@ test.describe('Inventory', () => {
     await page.goto('/inventory', { waitUntil: 'networkidle' })
     // Table header columns or empty-state message
     await expect(
-      page.locator('thead th, text=No stock records, text=No products')
+      page.locator('thead th').first().or(page.getByText('No stock records'))
     ).toBeVisible({ timeout: 10_000 })
   })
 
@@ -47,11 +47,5 @@ test.describe('Inventory', () => {
   // TODO: implement full test
   test.skip('make a stock adjustment and verify stock changes', async ({ page }) => {
     // TODO: implement full test
-    // 1. Navigate to /inventory
-    // 2. Note the current qty for a product
-    // 3. Click the Adjust button for that product
-    // 4. Fill in adjustment type (add/remove) and quantity
-    // 5. Submit and verify the qty changes
-    // 6. (Optional) check the ledger view for that product
   })
 })
