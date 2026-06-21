@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/shared/DataTable'
 import { DetailDrawer } from '@/components/shared/DetailDrawer'
-import { Plus, Download, Send, ArrowRightCircle } from 'lucide-react'
+import { Plus, Download, Send, ArrowRightCircle, Link2 } from 'lucide-react'
 import PIForm from './PIForm'
 import PIDrawerContent from './PIDrawerContent'
 import { useToast } from '@/components/ui/toast'
@@ -133,8 +133,18 @@ export default function ProformaInvoices() {
     },
   ], [selectedId])
 
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/proforma-invoices?pi=${selectedId}`)
+    toast({ title: 'Link copied to clipboard' })
+  }
+
   // Drawer actions
   const pi = selectedPI
+
+  const drawerHeaderActions = pi ? [
+    { icon: Download, tooltip: 'Download PDF', onClick: () => handleDownload(pi.id, pi.pi_no) },
+    { icon: Link2, tooltip: 'Copy link', onClick: handleCopyLink },
+  ] : []
   const drawerDestructive = pi?.status === 'draft' ? {
     label: 'Cancel',
     onClick: () => {
@@ -199,6 +209,7 @@ export default function ProformaInvoices() {
         title={pi?.pi_no}
         subtitle={pi?.companies?.name}
         status={pi?.status}
+        headerActions={drawerHeaderActions}
         destructiveAction={drawerDestructive}
         secondaryActions={drawerSecondary}
         primaryAction={drawerPrimary}

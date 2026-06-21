@@ -44,7 +44,7 @@ async def list_proforma(user: dict = Depends(require_roles("admin", "sales", "ac
 async def get_proforma(pi_id: UUID, user: dict = Depends(require_roles("admin", "sales", "accounts"))):
     db = get_db()
     result = db.table("proforma_invoices").select(
-        "*, companies(*), sales_orders!so_id(so_no), proforma_items(*, products(name))"
+        "*, companies(*), sales_orders!so_id(so_no), proforma_items(*, products(name)), invoices!converted_invoice_id(inv_no)"
     ).eq("id", str(pi_id)).execute()
     if not result.data:
         raise HTTPException(404, "Proforma invoice not found")
@@ -168,7 +168,10 @@ async def convert_to_invoice(
         items=items_in,
     )
     new_invoice = await create_invoice(inv_payload, user)
-    db.table("proforma_invoices").update({"status": "converted"}).eq("id", str(pi_id)).execute()
+    db.table("proforma_invoices").update({
+        "status": "converted",
+        "converted_invoice_id": new_invoice["id"],
+    }).eq("id", str(pi_id)).execute()
     return {"invoice_id": new_invoice["id"], "inv_no": new_invoice["inv_no"]}
 
 

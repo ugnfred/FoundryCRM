@@ -4,12 +4,13 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 /**
- * DetailDrawer — right-side slide-over panel
+ * DetailDrawer — right-side slide-over panel (580px desktop)
  *
  * Props:
- *   open, onClose, title, subtitle, status, statusLabel, statusVariant
+ *   open, onClose, title, subtitle, status, statusLabel
+ *   headerActions: [{ icon: LucideIcon, onClick, tooltip }]
  *   primaryAction: { label, onClick, disabled, disabledReason, loading, className }
- *   secondaryActions: [{ label, onClick, icon, disabled, loading }]
+ *   secondaryActions: [{ label, onClick, icon, disabled, loading, disabledReason }]
  *   destructiveAction: { label, onClick, disabled }
  *   isLoading, children
  */
@@ -49,6 +50,7 @@ function StatusBadge({ status, label }) {
 function DrawerSkeleton() {
   return (
     <div className="space-y-5 animate-pulse">
+      <div className="h-16 bg-gray-100 rounded-lg" />
       <div className="grid grid-cols-2 gap-3">
         {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="h-5 bg-gray-200 rounded" />
@@ -56,8 +58,13 @@ function DrawerSkeleton() {
       </div>
       <div className="h-px bg-gray-100" />
       <div className="space-y-2">
-        {Array.from({ length: 4 }).map((_, i) => (
+        {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="h-8 bg-gray-100 rounded" />
+        ))}
+      </div>
+      <div className="space-y-1.5">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-5 bg-gray-100 rounded" />
         ))}
       </div>
     </div>
@@ -71,6 +78,7 @@ export function DetailDrawer({
   subtitle,
   status,
   statusLabel,
+  headerActions = [],
   primaryAction,
   secondaryActions = [],
   destructiveAction,
@@ -83,28 +91,47 @@ export function DetailDrawer({
     <DialogPrimitive.Root open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogPrimitive.Portal>
         {/* Backdrop */}
-        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 duration-200" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 duration-200" />
 
-        {/* Panel */}
+        {/* Panel — 580px on desktop to comfortably fit line-item tables */}
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          className="fixed inset-y-0 right-0 z-50 flex flex-col bg-white shadow-2xl w-full md:w-[500px] data-[state=open]:animate-in data-[state=open]:slide-in-from-right data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+          className="fixed inset-y-0 right-0 z-50 flex flex-col bg-white shadow-2xl w-full md:w-[580px] data-[state=open]:animate-in data-[state=open]:slide-in-from-right data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
         >
           {/* Header */}
-          <div className="flex items-start justify-between border-b px-6 py-4 shrink-0 bg-white">
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2.5">
+          <div className="flex items-start gap-3 border-b px-6 py-4 shrink-0 bg-white">
+            {/* Title block */}
+            <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+              <div className="flex items-center gap-2.5 flex-wrap">
                 <DialogPrimitive.Title className="text-lg font-bold font-mono tracking-tight">
                   {title}
                 </DialogPrimitive.Title>
                 {status && <StatusBadge status={status} label={statusLabel} />}
               </div>
               {subtitle && (
-                <p className="text-sm text-muted-foreground">{subtitle}</p>
+                <p className="text-sm text-muted-foreground truncate">{subtitle}</p>
               )}
             </div>
+
+            {/* Header icon actions (PDF, copy link, etc.) */}
+            {headerActions.length > 0 && (
+              <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                {headerActions.map((action, i) => (
+                  <button
+                    key={i}
+                    onClick={action.onClick}
+                    title={action.tooltip}
+                    className="rounded-md p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                  >
+                    <action.icon className="h-4 w-4" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Close */}
             <DialogPrimitive.Close asChild>
-              <button className="mt-0.5 rounded-md p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+              <button className="shrink-0 mt-0.5 rounded-md p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
                 <X className="h-4 w-4" />
               </button>
             </DialogPrimitive.Close>
@@ -168,7 +195,7 @@ export function DetailDrawer({
   )
 }
 
-/** Reusable section label inside a drawer body */
+/** Section label inside a drawer body */
 export function DrawerSection({ title, children }) {
   return (
     <div className="space-y-2.5">
@@ -181,7 +208,7 @@ export function DrawerSection({ title, children }) {
 /** Key-value grid for document meta fields */
 export function DrawerFields({ fields }) {
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
       {fields.filter(Boolean).map(({ label, value }) => (
         <div key={label}>
           <dt className="text-slate-400 text-xs">{label}</dt>
