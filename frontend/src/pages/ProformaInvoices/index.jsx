@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { proformaApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -64,7 +64,7 @@ export default function ProformaInvoices() {
     { accessorKey: 'pi_no', header: 'PI No', cell: ({ getValue }) => <span className="font-mono font-semibold">{getValue()}</span> },
     { accessorKey: 'companies.name', header: 'Customer' },
     { accessorKey: 'date', header: 'Date' },
-    { accessorKey: 'validity_date', header: 'Valid Until', cell: ({ getValue }) => getValue() || 'â€”' },
+    { accessorKey: 'validity_date', header: 'Valid Until', cell: ({ getValue }) => getValue() || '—' },
     { accessorKey: 'total', header: 'Total (₹)', cell: ({ getValue }) => <span className="font-mono">₹{fmt(getValue())}</span> },
     {
       accessorKey: 'status',
@@ -126,7 +126,7 @@ export default function ProformaInvoices() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Proforma Invoices</h1>
-          <p className="text-slate-500 text-sm">Pre-sales quotation documents â€” not a tax invoice</p>
+          <p className="text-slate-500 text-sm">Pre-sales quotation documents — not a tax invoice</p>
         </div>
         <Button onClick={() => { setEditPI(null); setFormOpen(true) }}>
           <Plus className="h-4 w-4 mr-2" />New Proforma

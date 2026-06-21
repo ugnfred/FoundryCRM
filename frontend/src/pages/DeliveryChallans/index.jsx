@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { deliveryChallansApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -56,9 +56,9 @@ export default function DeliveryChallans() {
     { accessorKey: 'dc_no', header: 'DC No', cell: ({ getValue }) => <span className="font-mono font-semibold">{getValue()}</span> },
     { accessorKey: 'companies.name', header: 'Customer' },
     { accessorKey: 'date', header: 'Date' },
-    { accessorKey: 'sales_orders.so_no', header: 'SO Ref', cell: ({ getValue }) => getValue() || 'â€”' },
-    { accessorKey: 'vehicle_no', header: 'Vehicle No', cell: ({ getValue }) => getValue() || 'â€”' },
-    { accessorKey: 'transporter_name', header: 'Transporter', cell: ({ getValue }) => getValue() || 'â€”' },
+    { accessorKey: 'sales_orders.so_no', header: 'SO Ref', cell: ({ getValue }) => getValue() || '—' },
+    { accessorKey: 'vehicle_no', header: 'Vehicle No', cell: ({ getValue }) => getValue() || '—' },
+    { accessorKey: 'transporter_name', header: 'Transporter', cell: ({ getValue }) => getValue() || '—' },
     {
       accessorKey: 'status',
       header: 'Status',
@@ -105,7 +105,7 @@ export default function DeliveryChallans() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Delivery Challans</h1>
-          <p className="text-slate-500 text-sm">Dispatch documents â€” no pricing, for delivery use only</p>
+          <p className="text-slate-500 text-sm">Dispatch documents — no pricing, for delivery use only</p>
         </div>
         <Button onClick={() => { setEditDC(null); setFormOpen(true) }}>
           <Plus className="h-4 w-4 mr-2" />New Challan

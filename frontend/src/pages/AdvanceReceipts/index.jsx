@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { advanceReceiptsApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -50,9 +50,9 @@ export default function AdvanceReceipts() {
       header: 'PDC',
       cell: ({ row }) => row.original.is_pdc
         ? <Badge variant="outline" className="text-orange-600 border-orange-300">PDC {row.original.pdc_date}</Badge>
-        : <span className="text-slate-400 text-xs">â€”</span>,
+        : <span className="text-slate-400 text-xs">—</span>,
     },
-    { accessorKey: 'reference', header: 'Reference', cell: ({ getValue }) => getValue() || 'â€”' },
+    { accessorKey: 'reference', header: 'Reference', cell: ({ getValue }) => getValue() || '—' },
     {
       accessorKey: 'status',
       header: 'Status',
@@ -96,7 +96,7 @@ export default function AdvanceReceipts() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Advance Receipts</h1>
-          <p className="text-slate-500 text-sm">Customer advance payments and PDCs â€” auto-posted to ledger</p>
+          <p className="text-slate-500 text-sm">Customer advance payments and PDCs — auto-posted to ledger</p>
         </div>
         <Button onClick={() => setFormOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />New Advance
