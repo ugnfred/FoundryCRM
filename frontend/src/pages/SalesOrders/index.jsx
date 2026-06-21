@@ -1,15 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Plus, CheckCircle, Truck, Receipt, Trash2, Download } from 'lucide-react'
+import { Plus, CheckCircle, Truck, Receipt, Trash2, Download, Link2 } from 'lucide-react'
 import { ordersApi } from '@/lib/api'
 import { formatCurrency, formatDate, statusColor } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/shared/DataTable'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
 import { useHasRole } from '@/hooks/useAuth'
 import { useToast } from '@/components/ui/toast'
 import SOForm from './SOForm'
+import SODrawerContent from './SODrawerContent'
 
 export default function SalesOrders() {
   const qc = useQueryClient()
@@ -21,13 +23,23 @@ export default function SalesOrders() {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [highlightId, setHighlightId] = useState(null)
+  const [selectedId, setSelectedId] = useState(null)
+
   const { data = [] } = useQuery({ queryKey: ['orders'], queryFn: ordersApi.list })
+
+  const { data: soDetail } = useQuery({
+    queryKey: ['order', selectedId],
+    queryFn: () => ordersApi.get(selectedId),
+    enabled: !!selectedId,
+    staleTime: 30_000,
+  })
+
+  const selectedSO = soDetail ?? data.find(s => s.id === selectedId)
 
   useEffect(() => {
     if (location.state?.highlightId) {
       setHighlightId(location.state.highlightId)
       window.history.replaceState({}, '')
-      // Clear highlight after 3 seconds
       setTimeout(() => setHighlightId(null), 3000)
     }
   }, [location.state])
@@ -37,13 +49,14 @@ export default function SalesOrders() {
     onSuccess: (_, { status }) => {
       toast({ title: `Order marked as ${status}` })
       qc.invalidateQueries(['orders'])
+      qc.invalidateQueries(['order', selectedId])
     },
     onError: (e) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id) => ordersApi.delete(id),
-    onSuccess: () => { toast({ title: 'Order deleted' }); qc.invalidateQueries(['orders']) },
+    onSuccess: () => { toast({ title: 'Order deleted' }); qc.invalidateQueries(['orders']); setSelectedId(null) },
     onError: (e) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
   })
 
@@ -67,13 +80,8 @@ export default function SalesOrders() {
     }
   }
 
-  const getRowClassName = (row) =>
-    row.original.id === highlightId
-      ? 'bg-blue-50 ring-2 ring-inset ring-blue-400 transition-colors'
-      : 'hover:bg-gray-50 transition-colors'
-
   const columns = [
-    { accessorKey: 'so_no', header: 'SO #' },
+    { accessorKey: 'so_no', header: 'SO #', cell: ({ getValue }) => <span className="font-mono font-semibold">{getValue()}</span> },
     { accessorKey: 'companies.name', header: 'Customer' },
     { accessorKey: 'date', header: 'Date', cell: ({ getValue }) => formatDate(getValue()) },
     { accessorKey: 'delivery_date', header: 'Delivery', cell: ({ getValue }) => formatDate(getValue()) },
@@ -81,64 +89,41 @@ export default function SalesOrders() {
     { accessorKey: 'total', header: 'Total', cell: ({ getValue }) => formatCurrency(getValue()) },
     { accessorKey: 'status', header: 'Status', cell: ({ getValue }) => <Badge className={statusColor(getValue())}>{getValue()}</Badge> },
     {
-      id: 'invoices_link',
-      header: 'Invoices',
-      cell: ({ row }) => {
-        const invs = row.original.invoices ?? []
-        if (!invs.length) return <span className="text-muted-foreground text-xs">—</span>
-        return (
-          <button
-            className="inline-flex items-center rounded-full bg-blue-100 text-blue-700 text-xs px-2 py-0.5 font-medium hover:bg-blue-200"
-            onClick={() => navigate('/invoices', { state: { filterSONo: row.original.so_no } })}
-          >
-            {invs.length} invoice{invs.length > 1 ? 's' : ''}
-          </button>
-        )
-      },
-    },
-    {
       id: 'actions', header: '',
-      cell: ({ row }) => {
-        const { id, status } = row.original
-        return (
-          <div className="flex gap-1 flex-wrap">
-            {canWrite && (
-              <Button size="sm" variant="ghost" onClick={() => { setEditing(row.original); setOpen(true) }}>Edit</Button>
-            )}
-            <Button size="sm" variant="ghost" onClick={() => downloadPdf(row.original)}>
-              <Download className="h-3 w-3" />
-            </Button>
-            {canWrite && status === 'draft' && (
-              <Button size="sm" variant="outline" className="text-blue-700 border-blue-300"
-                disabled={statusMutation.isPending}
-                onClick={() => statusMutation.mutate({ id, status: 'confirmed' })}>
-                <CheckCircle className="h-3 w-3 mr-1" />Confirm
-              </Button>
-            )}
-            {canWrite && status === 'confirmed' && (
-              <Button size="sm" variant="outline" className="text-purple-700 border-purple-300"
-                disabled={statusMutation.isPending}
-                onClick={() => statusMutation.mutate({ id, status: 'dispatched' })}>
-                <Truck className="h-3 w-3 mr-1" />Dispatched
-              </Button>
-            )}
-            {canWrite && ['draft', 'cancelled'].includes(status) && (
-              <Button size="sm" variant="ghost" className="text-red-500"
-                onClick={() => { if (confirm(`Delete ${row.original.so_no}?`)) deleteMutation.mutate(id) }}>
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            )}
-            {canInvoice && ['confirmed', 'dispatched'].includes(status) && (
-              <Button size="sm" variant="outline" className="text-green-700 border-green-300"
-                onClick={() => handleCreateInvoice(row.original)}>
-                <Receipt className="h-3 w-3 mr-1" />Invoice
-              </Button>
-            )}
-          </div>
-        )
-      },
+      cell: ({ row }) => (
+        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); downloadPdf(row.original) }}>
+          <Download className="h-3 w-3" />
+        </Button>
+      ),
     },
   ]
+
+  const getRowClassName = (row) => {
+    if (row.original.id === highlightId) return 'bg-blue-50 ring-2 ring-inset ring-blue-400 transition-colors cursor-pointer'
+    if (row.original.id === selectedId) return 'bg-primary/5 border-l-4 border-l-primary cursor-pointer'
+    return 'hover:bg-gray-50 transition-colors cursor-pointer'
+  }
+
+  const so = selectedSO
+  const status = so?.status
+
+  const drawerPrimary = canInvoice && ['confirmed', 'dispatched'].includes(status) ? {
+    label: 'Create Invoice',
+    icon: Receipt,
+    onClick: () => so && handleCreateInvoice(so),
+  } : undefined
+
+  const drawerSecondary = [
+    canWrite && status === 'draft' ? { label: 'Confirm', icon: CheckCircle, onClick: () => statusMutation.mutate({ id: selectedId, status: 'confirmed' }) } : null,
+    canWrite && status === 'confirmed' ? { label: 'Dispatch', icon: Truck, onClick: () => statusMutation.mutate({ id: selectedId, status: 'dispatched' }) } : null,
+    canWrite && ['draft', 'sent'].includes(status) ? { label: 'Edit', onClick: () => { setEditing(so); setOpen(true); setSelectedId(null) } } : null,
+  ].filter(Boolean)
+
+  const drawerDestructive = canWrite && ['draft', 'cancelled'].includes(status) ? {
+    label: 'Delete',
+    icon: Trash2,
+    onClick: () => { if (confirm(`Delete ${so?.so_no}?`)) deleteMutation.mutate(selectedId) },
+  } : undefined
 
   return (
     <div className="space-y-4">
@@ -155,9 +140,29 @@ export default function SalesOrders() {
         data={data}
         searchPlaceholder="Search orders…"
         emptyMessage="No sales orders yet. Convert a quotation or create a new order."
+        onRowClick={(row) => setSelectedId(row.original.id === selectedId ? null : row.original.id)}
         getRowClassName={getRowClassName}
       />
-      {open && <SOForm open={open} onClose={() => setOpen(false)} existing={editing} />}
+
+      <DetailDrawer
+        open={!!selectedId}
+        onClose={() => setSelectedId(null)}
+        title={so?.so_no ?? '…'}
+        subtitle={so?.companies?.name}
+        status={status}
+        statusLabel={status}
+        headerActions={[
+          { icon: Download, tooltip: 'Download PDF', onClick: () => so && downloadPdf(so) },
+          { icon: Link2, tooltip: 'Copy link', onClick: () => { navigator.clipboard.writeText(window.location.origin + '/sales-orders?so=' + selectedId); toast({ title: 'Link copied' }) } },
+        ]}
+        primaryAction={drawerPrimary}
+        secondaryActions={drawerSecondary}
+        destructiveAction={drawerDestructive}
+      >
+        <SODrawerContent so={so} />
+      </DetailDrawer>
+
+      {open && <SOForm open={open} onClose={() => { setOpen(false); setEditing(null) }} existing={editing} />}
     </div>
   )
 }

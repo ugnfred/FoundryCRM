@@ -4,34 +4,40 @@ import { deliveryChallansApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/shared/DataTable'
-import { Plus, Download, Truck, X } from 'lucide-react'
+import { DetailDrawer } from '@/components/shared/DetailDrawer'
+import { Plus, Download, Truck, X, Link2 } from 'lucide-react'
 import DCForm from './DCForm'
+import DCDrawerContent from './DCDrawerContent'
 import { useToast } from '@/components/ui/toast'
 
 const STATUS_COLORS = { draft: 'secondary', dispatched: 'default', cancelled: 'destructive' }
-
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = filename; a.click()
-  URL.revokeObjectURL(url)
-}
 
 export default function DeliveryChallans() {
   const { toast } = useToast()
   const qc = useQueryClient()
   const [formOpen, setFormOpen] = useState(false)
   const [editDC, setEditDC] = useState(null)
+  const [selectedId, setSelectedId] = useState(null)
 
   const { data: dcList = [], isLoading } = useQuery({
     queryKey: ['delivery-challans'],
     queryFn: deliveryChallansApi.list,
   })
 
+  const { data: dcDetail } = useQuery({
+    queryKey: ['delivery-challan', selectedId],
+    queryFn: () => deliveryChallansApi.get(selectedId),
+    enabled: !!selectedId,
+    staleTime: 30_000,
+  })
+
+  const selectedDC = dcDetail ?? dcList.find(d => d.id === selectedId)
+
   const dispatchMutation = useMutation({
     mutationFn: (id) => deliveryChallansApi.dispatch(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['delivery-challans'] })
+      qc.invalidateQueries({ queryKey: ['delivery-challan', selectedId] })
       toast({ title: 'Challan marked as dispatched' })
     },
     onError: (e) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
@@ -39,14 +45,19 @@ export default function DeliveryChallans() {
 
   const cancelMutation = useMutation({
     mutationFn: (id) => deliveryChallansApi.cancel(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['delivery-challans'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['delivery-challans'] })
+      qc.invalidateQueries({ queryKey: ['delivery-challan', selectedId] })
+    },
     onError: (e) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
   })
 
-  const handleDownload = async (id, dcNo) => {
+  async function downloadPdf(id, dcNo) {
     try {
       const blob = await deliveryChallansApi.downloadPdf(id)
-      downloadBlob(blob, `DC-${dcNo}.pdf`)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = `DC-${dcNo}.pdf`; a.click()
+      URL.revokeObjectURL(url)
     } catch (e) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' })
     }
@@ -60,45 +71,43 @@ export default function DeliveryChallans() {
     { accessorKey: 'vehicle_no', header: 'Vehicle No', cell: ({ getValue }) => getValue() || '—' },
     { accessorKey: 'transporter_name', header: 'Transporter', cell: ({ getValue }) => getValue() || '—' },
     {
-      accessorKey: 'status',
-      header: 'Status',
+      accessorKey: 'status', header: 'Status',
       cell: ({ getValue }) => <Badge variant={STATUS_COLORS[getValue()] || 'secondary'} className="capitalize">{getValue()}</Badge>,
     },
     {
-      id: 'actions',
-      header: 'Actions',
-      cell: ({ row }) => {
-        const dc = row.original
-        return (
-          <div className="flex gap-1 items-center">
-            {dc.status === 'draft' && (
-              <Button size="sm" variant="outline" onClick={() => { setEditDC(dc); setFormOpen(true) }}>Edit</Button>
-            )}
-            {dc.status === 'draft' && (
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => {
-                  if (confirm('Mark as dispatched?')) dispatchMutation.mutate(dc.id)
-                }}>
-                <Truck className="h-3 w-3 mr-1" />Dispatch
-              </Button>
-            )}
-            <Button size="sm" variant="outline" onClick={() => handleDownload(dc.id, dc.dc_no)}>
-              <Download className="h-3 w-3" />
-            </Button>
-            {dc.status === 'draft' && (
-              <Button size="sm" variant="ghost" className="text-red-500 h-7 w-7 p-0"
-                title="Cancel challan"
-                onClick={() => {
-                  if (confirm('Cancel this challan?')) cancelMutation.mutate(dc.id)
-                }}>
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
-        )
-      },
+      id: 'actions', header: '',
+      cell: ({ row }) => (
+        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); downloadPdf(row.original.id, row.original.dc_no) }}>
+          <Download className="h-3 w-3" />
+        </Button>
+      ),
     },
   ]
+
+  const getRowClassName = (row) => {
+    if (row.original.id === selectedId) return 'bg-primary/5 border-l-4 border-l-primary cursor-pointer'
+    return 'hover:bg-gray-50 cursor-pointer'
+  }
+
+  const dc = selectedDC
+  const status = dc?.status
+
+  const drawerPrimary = status === 'draft' ? {
+    label: 'Mark Dispatched',
+    icon: Truck,
+    onClick: () => { if (confirm('Mark as dispatched?')) dispatchMutation.mutate(selectedId) },
+    disabled: dispatchMutation.isPending,
+  } : undefined
+
+  const drawerSecondary = [
+    status === 'draft' ? { label: 'Edit', onClick: () => { setEditDC(dc); setFormOpen(true); setSelectedId(null) } } : null,
+  ].filter(Boolean)
+
+  const drawerDestructive = status === 'draft' ? {
+    label: 'Cancel',
+    icon: X,
+    onClick: () => { if (confirm('Cancel this challan?')) cancelMutation.mutate(selectedId) },
+  } : undefined
 
   return (
     <div className="space-y-4">
@@ -112,7 +121,32 @@ export default function DeliveryChallans() {
         </Button>
       </div>
 
-      <DataTable columns={columns} data={dcList} isLoading={isLoading} emptyMessage="No delivery challans yet" />
+      <DataTable
+        columns={columns}
+        data={dcList}
+        isLoading={isLoading}
+        emptyMessage="No delivery challans yet"
+        onRowClick={(row) => setSelectedId(row.original.id === selectedId ? null : row.original.id)}
+        getRowClassName={getRowClassName}
+      />
+
+      <DetailDrawer
+        open={!!selectedId}
+        onClose={() => setSelectedId(null)}
+        title={dc?.dc_no ?? '…'}
+        subtitle={dc?.companies?.name}
+        status={status}
+        statusLabel={status}
+        headerActions={[
+          { icon: Download, tooltip: 'Download PDF', onClick: () => dc && downloadPdf(dc.id, dc.dc_no) },
+          { icon: Link2, tooltip: 'Copy link', onClick: () => { navigator.clipboard.writeText(window.location.origin + '/delivery-challans?dc=' + selectedId); toast({ title: 'Link copied' }) } },
+        ]}
+        primaryAction={drawerPrimary}
+        secondaryActions={drawerSecondary}
+        destructiveAction={drawerDestructive}
+      >
+        <DCDrawerContent dc={dc} />
+      </DetailDrawer>
 
       {formOpen && (
         <DCForm open={formOpen} onClose={() => { setFormOpen(false); setEditDC(null) }} editDC={editDC} />
@@ -120,4 +154,3 @@ export default function DeliveryChallans() {
     </div>
   )
 }
-
