@@ -117,10 +117,10 @@ export default function PIForm({ open, onClose, editPI }) {
               <label className="text-sm font-medium">Sales Order (optional)</label>
               <Controller control={control} name="so_id"
                 render={({ field }) => (
-                  <Select value={field.value || ''} onValueChange={v => field.onChange(v || null)}>
+                  <Select value={field.value || 'none'} onValueChange={v => field.onChange(v === 'none' ? null : v)}>
                     <SelectTrigger><SelectValue placeholder="Link to SO" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">— None —</SelectItem>
+                      <SelectItem value="none">— None —</SelectItem>
                       {orders.filter(o => o.status !== 'cancelled').map(o => (
                         <SelectItem key={o.id} value={o.id}>{o.so_no} — {o.companies?.name}</SelectItem>
                       ))}
@@ -173,9 +173,10 @@ export default function PIForm({ open, onClose, editPI }) {
                         <td className="px-1 py-1">
                           <Controller control={control} name={`items.${i}.product_id`}
                             render={({ field: f }) => (
-                              <Select value={f.value || ''} onValueChange={v => {
-                                f.onChange(v || null)
-                                const prod = products.find(p => p.id === v)
+                              <Select value={f.value || 'none_product'} onValueChange={v => {
+                                const realVal = v === 'none_product' ? null : v
+                                f.onChange(realVal)
+                                const prod = products.find(p => p.id === realVal)
                                 if (prod) {
                                   setValue(`items.${i}.description`, prod.name)
                                   setValue(`items.${i}.hsn_code`, prod.hsn_code || '')
@@ -185,7 +186,7 @@ export default function PIForm({ open, onClose, editPI }) {
                               }}>
                                 <SelectTrigger className="w-28 h-8 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">— Manual —</SelectItem>
+                                  <SelectItem value="none_product">— Manual —</SelectItem>
                                   {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                                 </SelectContent>
                               </Select>
