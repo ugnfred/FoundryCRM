@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
-export function DataTable({ columns, data, searchKey, searchPlaceholder = 'Search…', emptyMessage = 'No records found.', getRowClassName, defaultFilter = '' }) {
+export function DataTable({ columns, data, searchKey, searchPlaceholder = 'Search…', emptyMessage = 'No records found.', getRowClassName, onRowClick, defaultFilter = '' }) {
   const [sorting, setSorting] = useState([])
   const [globalFilter, setGlobalFilter] = useState(defaultFilter)
 
@@ -38,7 +38,7 @@ export function DataTable({ columns, data, searchKey, searchPlaceholder = 'Searc
         className="max-w-xs"
       />
       <div className="rounded-lg border bg-white overflow-hidden">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm border-separate border-spacing-0">
           <thead className="bg-gray-50 border-b">
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id}>
@@ -46,7 +46,7 @@ export function DataTable({ columns, data, searchKey, searchPlaceholder = 'Searc
                   <th
                     key={header.id}
                     onClick={header.column.getToggleSortingHandler()}
-                    className={cn('px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide', header.column.getCanSort() && 'cursor-pointer select-none')}
+                    className={cn('px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide border-b', header.column.getCanSort() && 'cursor-pointer select-none')}
                   >
                     <span className="flex items-center gap-1">
                       {flexRender(header.column.columnDef.header, header.getContext())}
@@ -58,9 +58,19 @@ export function DataTable({ columns, data, searchKey, searchPlaceholder = 'Searc
               </tr>
             ))}
           </thead>
-          <tbody className="divide-y">
+          <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className={getRowClassName ? getRowClassName(row) : 'hover:bg-gray-50 transition-colors'}>
+              <tr
+                key={row.id}
+                tabIndex={onRowClick ? 0 : undefined}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                onKeyDown={onRowClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick(row) } } : undefined}
+                className={cn(
+                  'border-b last:border-b-0',
+                  onRowClick && 'cursor-pointer',
+                  getRowClassName ? getRowClassName(row) : 'hover:bg-gray-50 transition-colors'
+                )}
+              >
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className="px-4 py-3">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
