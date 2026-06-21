@@ -174,16 +174,14 @@ class TestCNIssue:
 class TestCNCancel:
     def test_cancel_draft_cn(self, session, api, customer_id, today):
         cn = _create_cn(session, api, customer_id, None, today,
-                        items=[make_line_item(qty=1, rate=100, gst_rate=18)],
-                        invoice_id=None)
+                        items=[make_line_item(qty=1, rate=100, gst_rate=18)])
         resp = session.post(f"{api}/api/v1/credit-notes/{cn['id']}/cancel")
         assert resp.status_code == 200
         assert resp.json()["status"] == "cancelled"
 
     def test_cancel_already_cancelled_returns_400(self, session, api, customer_id, today):
         cn = _create_cn(session, api, customer_id, None, today,
-                        items=[make_line_item(qty=1, rate=100, gst_rate=18)],
-                        invoice_id=None)
+                        items=[make_line_item(qty=1, rate=100, gst_rate=18)])
         session.post(f"{api}/api/v1/credit-notes/{cn['id']}/cancel")
         resp = session.post(f"{api}/api/v1/credit-notes/{cn['id']}/cancel")
         assert resp.status_code == 400

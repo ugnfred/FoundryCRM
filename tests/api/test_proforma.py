@@ -63,13 +63,13 @@ class TestProformaCreate:
         assert float(proforma["total"]) == pytest.approx(5900.0)
 
     def test_igst_for_inter_state(self, proforma):
-        """place_of_supply=07 (Delhi) vs seller 27 (MH) → IGST."""
+        """place_of_supply=07 (Delhi) vs seller 33 (TN) → IGST."""
         assert float(proforma.get("igst", 0)) == pytest.approx(900.0)
         assert float(proforma.get("cgst", 0)) == pytest.approx(0.0)
 
     def test_intra_state_cgst_sgst(self, session, api, intrastate_customer_id, today):
         pi = _create_pi(session, api, intrastate_customer_id, today,
-                        place_of_supply="27",
+                        place_of_supply="33",
                         items=[make_line_item(qty=10, rate=500, gst_rate=18)])
         assert float(pi.get("cgst", 0)) == pytest.approx(450.0)
         assert float(pi.get("sgst", 0)) == pytest.approx(450.0)

@@ -30,10 +30,10 @@ async def list_quotations(user: dict = Depends(get_current_user)):
 @router.get("/{quotation_id}")
 async def get_quotation(quotation_id: UUID, user: dict = Depends(get_current_user)):
     db = get_db()
-    result = db.table("quotations").select("*, companies(*), quotation_items(*)").eq("id", str(quotation_id)).single().execute()
+    result = db.table("quotations").select("*, companies(*), quotation_items(*)").eq("id", str(quotation_id)).execute()
     if not result.data:
         raise HTTPException(404, "Quotation not found")
-    return result.data
+    return result.data[0]
 
 
 @router.post("/", status_code=201)

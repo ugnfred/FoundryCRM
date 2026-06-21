@@ -27,12 +27,11 @@ async def get_grn(grn_id: UUID, user: dict = Depends(get_current_user)):
         db.table("grn")
         .select("*, purchase_orders(po_no, companies(name, address, gstin)), grn_items(*, products(name, hsn_code, uom))")
         .eq("id", str(grn_id))
-        .single()
         .execute()
     )
     if not result.data:
         raise HTTPException(404, "GRN not found")
-    return result.data
+    return result.data[0]
 
 
 @router.get("/{grn_id}/pdf")
@@ -42,13 +41,12 @@ async def download_grn_pdf(grn_id: UUID, user: dict = Depends(get_current_user))
         db.table("grn")
         .select("*, purchase_orders(po_no, companies(name, address, gstin)), grn_items(*, products(name, hsn_code, uom))")
         .eq("id", str(grn_id))
-        .single()
         .execute()
     )
     if not result.data:
         raise HTTPException(404, "GRN not found")
-    pdf_bytes = generate_grn_pdf(result.data)
-    filename = f"{result.data.get('grn_no', grn_id)}.pdf"
+    pdf_bytes = generate_grn_pdf(result.data[0])
+    filename = f"{result.data[0].get('grn_no', grn_id)}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

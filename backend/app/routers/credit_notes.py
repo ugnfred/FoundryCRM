@@ -31,12 +31,11 @@ async def get_credit_note(cn_id: UUID, user: dict = Depends(get_current_user)):
         db.table("credit_notes")
         .select("*, companies(*), invoices!invoice_id(id, inv_no, balance_due, total), credit_note_items(*)")
         .eq("id", str(cn_id))
-        .single()
         .execute()
     )
     if not result.data:
         raise HTTPException(404, "Credit note not found")
-    return result.data
+    return result.data[0]
 
 
 @router.post("/", status_code=201)
@@ -50,15 +49,19 @@ async def create_credit_note(
 
     # Validate: CN total must not exceed linked invoice total
     if payload.invoice_id:
-        inv = db.table("invoices").select("total, balance_due, status").eq("id", str(payload.invoice_id)).single().execute().data
-        if not inv:
+        inv_rows = db.table("invoices").select("total, amount_paid, status").eq("id", str(payload.invoice_id)).execute().data
+        if not inv_rows:
             raise HTTPException(404, "Linked invoice not found")
+        inv = inv_rows[0]
         if inv["status"] == "cancelled":
             raise HTTPException(400, "Cannot issue CN against a cancelled invoice")
         existing_cns = db.table("credit_notes").select("total").eq("invoice_id", str(payload.invoice_id)).neq("status", "cancelled").execute().data or []
         existing_total = sum(Decimal(str(r["total"])) for r in existing_cns)
         new_total = calc["total"]
         inv_total = Decimal(str(inv["total"]))
+        # balance_due is a generated column; compute it here
+        inv_paid = Decimal(str(inv.get("amount_paid") or 0))
+        inv_balance = inv_total - inv_paid
         if existing_total + new_total > inv_total:
             raise HTTPException(400, f"CN total ₹{float(new_total):.2f} exceeds invoice total ₹{float(inv_total):.2f} (already credited: ₹{float(existing_total):.2f})")
 
@@ -116,21 +119,27 @@ async def issue_credit_note(
 ):
     """Issue a draft CN: update invoice balance_due and post to customer_ledger."""
     db = get_db()
-    cn = db.table("credit_notes").select("*").eq("id", str(cn_id)).single().execute().data
-    if not cn:
+    cn_rows = db.table("credit_notes").select("*").eq("id", str(cn_id)).execute().data
+    if not cn_rows:
         raise HTTPException(404, "Credit note not found")
+    cn = cn_rows[0]
     if cn["status"] != "draft":
         raise HTTPException(400, f"CN is already {cn['status']}")
 
     cn_total = Decimal(str(cn["total"]))
 
-    # Reduce linked invoice balance_due (if linked)
+    # Increase amount_paid on linked invoice to reflect the credit (balance_due is a generated column)
     if cn.get("invoice_id"):
-        inv = db.table("invoices").select("balance_due, status").eq("id", cn["invoice_id"]).single().execute().data
-        if inv:
-            new_balance = max(Decimal("0"), Decimal(str(inv["balance_due"])) - cn_total)
+        inv_rows = db.table("invoices").select("total, amount_paid, status").eq("id", cn["invoice_id"]).execute().data
+        if inv_rows:
+            inv = inv_rows[0]
+            new_paid = min(
+                Decimal(str(inv.get("amount_paid") or 0)) + cn_total,
+                Decimal(str(inv["total"])),
+            )
+            new_balance = Decimal(str(inv["total"])) - new_paid
             new_status = "paid" if new_balance == 0 else inv["status"]
-            db.table("invoices").update({"balance_due": float(new_balance), "status": new_status}).eq("id", cn["invoice_id"]).execute()
+            db.table("invoices").update({"amount_paid": float(new_paid), "status": new_status}).eq("id", cn["invoice_id"]).execute()
 
     # Post credit entry to customer_ledger
     db.table("customer_ledger").insert({
@@ -154,19 +163,20 @@ async def cancel_credit_note(
     user: dict = Depends(require_roles("admin")),
 ):
     db = get_db()
-    cn = db.table("credit_notes").select("*").eq("id", str(cn_id)).single().execute().data
-    if not cn:
+    cn_rows = db.table("credit_notes").select("*").eq("id", str(cn_id)).execute().data
+    if not cn_rows:
         raise HTTPException(404, "Credit note not found")
+    cn = cn_rows[0]
     if cn["status"] == "cancelled":
         raise HTTPException(400, "CN is already cancelled")
 
-    # If issued, reverse the invoice balance and ledger
+    # If issued, reverse the invoice amount_paid (balance_due is a generated column)
     if cn["status"] == "issued" and cn.get("invoice_id"):
-        inv = db.table("invoices").select("balance_due, total, status").eq("id", cn["invoice_id"]).single().execute().data
-        if inv:
-            restored = Decimal(str(inv["balance_due"])) + Decimal(str(cn["total"]))
-            restored = min(restored, Decimal(str(inv["total"])))
-            db.table("invoices").update({"balance_due": float(restored), "status": "sent"}).eq("id", cn["invoice_id"]).execute()
+        inv_rows = db.table("invoices").select("total, amount_paid, status").eq("id", cn["invoice_id"]).execute().data
+        if inv_rows:
+            inv = inv_rows[0]
+            new_paid = max(Decimal("0"), Decimal(str(inv.get("amount_paid") or 0)) - Decimal(str(cn["total"])))
+            db.table("invoices").update({"amount_paid": float(new_paid), "status": "sent"}).eq("id", cn["invoice_id"]).execute()
         # Remove ledger entry
         db.table("customer_ledger").delete().eq("doc_id", str(cn_id)).eq("doc_type", "cn").execute()
 
@@ -181,13 +191,12 @@ async def download_cn_pdf(cn_id: UUID, user: dict = Depends(get_current_user)):
         db.table("credit_notes")
         .select("*, companies(*), invoices!invoice_id(inv_no), credit_note_items(*)")
         .eq("id", str(cn_id))
-        .single()
         .execute()
     )
     if not result.data:
         raise HTTPException(404, "Credit note not found")
-    pdf_bytes = generate_credit_note_pdf(result.data)
-    filename = f"{result.data.get('cn_no', cn_id)}.pdf"
+    pdf_bytes = generate_credit_note_pdf(result.data[0])
+    filename = f"{result.data[0].get('cn_no', cn_id)}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

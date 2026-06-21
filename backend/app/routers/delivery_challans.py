@@ -41,10 +41,10 @@ async def get_dc(dc_id: UUID, user: dict = Depends(get_current_user)):
     db = get_db()
     result = db.table("delivery_challans").select(
         "*, companies(*), sales_orders!so_id(so_no), dc_items(*, products(name))"
-    ).eq("id", str(dc_id)).single().execute()
+    ).eq("id", str(dc_id)).execute()
     if not result.data:
         raise HTTPException(404, "Delivery challan not found")
-    return result.data
+    return result.data[0]
 
 
 @router.post("/", status_code=201)

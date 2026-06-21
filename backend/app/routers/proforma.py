@@ -45,10 +45,10 @@ async def get_proforma(pi_id: UUID, user: dict = Depends(require_roles("admin", 
     db = get_db()
     result = db.table("proforma_invoices").select(
         "*, companies(*), sales_orders!so_id(so_no), proforma_items(*, products(name))"
-    ).eq("id", str(pi_id)).single().execute()
+    ).eq("id", str(pi_id)).execute()
     if not result.data:
         raise HTTPException(404, "Proforma invoice not found")
-    return result.data
+    return result.data[0]
 
 
 @router.post("/", status_code=201)

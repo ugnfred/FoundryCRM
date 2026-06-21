@@ -28,10 +28,10 @@ async def list_orders(user: dict = Depends(get_current_user)):
 @router.get("/{so_id}")
 async def get_order(so_id: UUID, user: dict = Depends(get_current_user)):
     db = get_db()
-    result = db.table("sales_orders").select("*, companies(*), so_items(*, products(name))").eq("id", str(so_id)).single().execute()
+    result = db.table("sales_orders").select("*, companies(*), so_items(*, products(name))").eq("id", str(so_id)).execute()
     if not result.data:
         raise HTTPException(404, "Sales order not found")
-    return result.data
+    return result.data[0]
 
 
 @router.post("/", status_code=201)

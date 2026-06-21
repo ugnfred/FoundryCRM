@@ -27,10 +27,10 @@ async def list_pos(user: dict = Depends(require_roles("admin", "accounts"))):
 @router.get("/{po_id}")
 async def get_po(po_id: UUID, user: dict = Depends(require_roles("admin", "accounts"))):
     db = get_db()
-    result = db.table("purchase_orders").select("*, companies(*), po_items(*, products(name))").eq("id", str(po_id)).single().execute()
+    result = db.table("purchase_orders").select("*, companies(*), po_items(*, products(name))").eq("id", str(po_id)).execute()
     if not result.data:
         raise HTTPException(404, "Purchase order not found")
-    return result.data
+    return result.data[0]
 
 
 @router.post("/", status_code=201)

@@ -135,10 +135,10 @@ async def list_invoices(user: dict = Depends(get_current_user)):
 @router.get("/{invoice_id}")
 async def get_invoice(invoice_id: UUID, user: dict = Depends(get_current_user)):
     db = get_db()
-    result = db.table("invoices").select("*, companies(*), invoice_items(*, products(name)), payments(*)").eq("id", str(invoice_id)).single().execute()
+    result = db.table("invoices").select("*, companies(*), invoice_items(*, products(name)), payments(*)").eq("id", str(invoice_id)).execute()
     if not result.data:
         raise HTTPException(404, "Invoice not found")
-    return result.data
+    return result.data[0]
 
 
 @router.post("/", status_code=201)

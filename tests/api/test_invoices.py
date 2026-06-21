@@ -19,7 +19,7 @@ differs.
 import pytest
 from conftest import make_line_item
 
-SELLER_STATE = "27"  # Maharashtra — must match company_settings.state_code
+SELLER_STATE = "33"  # Tamil Nadu — must match company_settings.state_code for Royal Met Alloys
 
 
 # ---------------------------------------------------------------------------

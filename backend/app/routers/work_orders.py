@@ -42,11 +42,11 @@ async def get_work_order(wo_id: UUID, user: dict = Depends(get_current_user)):
     db = get_db()
     result = db.table("work_orders").select(
         "*, products!product_id(name, uom), sales_orders!so_id(so_no), bom_headers!bom_id(version, bom_items(*, products!component_id(name, uom)))"
-    ).eq("id", str(wo_id)).single().execute()
+    ).eq("id", str(wo_id)).execute()
     if not result.data:
         raise HTTPException(404, "Work order not found")
 
-    wo = result.data
+    wo = result.data[0]
     # Augment BOM items with current stock on hand
     bom = wo.get("bom_headers")
     if bom and bom.get("bom_items"):

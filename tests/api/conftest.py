@@ -106,7 +106,7 @@ def customer_id(session, api):
         "name": "Pytest Test Customer Co.",
         "gstin": "27AABCT1332L1ZT",
         "state_code": "07",   # Delhi — different from seller state (27=MH) for IGST tests
-        "address_line1": "42 Test Lane",
+        "address": "42 Test Lane",
         "city": "New Delhi",
         "pincode": "110001",
         "is_active": True,
@@ -124,11 +124,11 @@ def intrastate_customer_id(session, api):
     """
     payload = {
         "name": "Pytest Intrastate Customer",
-        "gstin": "27AABCT1332L1ZU",
-        "state_code": "27",   # Maharashtra — same as seller
-        "address_line1": "99 MH Road",
-        "city": "Pune",
-        "pincode": "411001",
+        "gstin": "33AABCT1332L1ZU",
+        "state_code": "33",   # Tamil Nadu — same as seller (Royal Met Alloys)
+        "address": "99 TN Road",
+        "city": "Chennai",
+        "pincode": "600001",
         "is_active": True,
     }
     resp = session.post(f"{api}/api/v1/settings/companies", json=payload)
@@ -147,8 +147,7 @@ def product_id(session, api):
         "hsn_code": "84139100",
         "uom": "NOS",
         "category": "Finished Goods",
-        "sale_rate": 500.0,
-        "purchase_rate": 350.0,
+        "base_rate": 500.0,
         "gst_rate": 18.0,
         "is_active": True,
     }
@@ -167,8 +166,7 @@ def component_product_id(session, api):
         "hsn_code": "73181500",
         "uom": "KG",
         "category": "Raw Material",
-        "sale_rate": 100.0,
-        "purchase_rate": 80.0,
+        "base_rate": 100.0,
         "gst_rate": 18.0,
         "is_active": True,
     }

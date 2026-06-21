@@ -67,7 +67,7 @@ class TestProducts:
             "hsn_code": "84139100",
             "uom": "NOS",
             "category": "Finished Goods",
-            "sale_rate": 750.0,
+            "base_rate": 750.0,
             "gst_rate": 18.0,
             "is_active": True,
         }
@@ -140,8 +140,7 @@ class TestCompanies:
             "name": "Full Address Company Pvt Ltd",
             "gstin": "29AABCT1332L1ZT",
             "state_code": "29",
-            "address_line1": "123 Industrial Estate",
-            "address_line2": "Phase II",
+            "address": "123 Industrial Estate, Phase II",
             "city": "Bengaluru",
             "pincode": "560001",
             "phone": "9876543210",

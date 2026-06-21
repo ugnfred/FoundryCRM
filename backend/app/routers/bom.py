@@ -41,8 +41,10 @@ async def get_active_bom(product_id: str, user: dict = Depends(get_current_user)
     db = get_db()
     result = db.table("bom_headers").select(
         "*, products!product_id(name), bom_items(*, products!component_id(name, uom))"
-    ).eq("product_id", product_id).eq("is_active", True).single().execute()
-    return result.data
+    ).eq("product_id", product_id).eq("is_active", True).execute()
+    if not result.data:
+        raise HTTPException(404, "No active BOM for this product")
+    return result.data[0]
 
 
 @router.get("/{bom_id}")
@@ -50,10 +52,10 @@ async def get_bom(bom_id: UUID, user: dict = Depends(get_current_user)):
     db = get_db()
     result = db.table("bom_headers").select(
         "*, products!product_id(name, uom), bom_items(*, products!component_id(name, uom))"
-    ).eq("id", str(bom_id)).single().execute()
+    ).eq("id", str(bom_id)).execute()
     if not result.data:
         raise HTTPException(404, "BOM not found")
-    return result.data
+    return result.data[0]
 
 
 @router.post("/", status_code=201)
@@ -100,16 +102,20 @@ async def update_bom(
 ):
     """Create a new version from an existing BOM (immutable versioning)."""
     db = get_db()
-    old = db.table("bom_headers").select("version, product_id").eq("id", str(bom_id)).single().execute().data
-    if not old:
+    old_rows = db.table("bom_headers").select("version, product_id").eq("id", str(bom_id)).execute().data
+    if not old_rows:
         raise HTTPException(404, "BOM not found")
 
     # Deactivate all for this product
     db.table("bom_headers").update({"is_active": False}).eq("product_id", str(payload.product_id)).execute()
 
+    # Use max existing version + 1 to avoid UNIQUE(product_id, version) conflict
+    all_versions = db.table("bom_headers").select("version").eq("product_id", str(payload.product_id)).execute().data or []
+    max_version = max((r["version"] for r in all_versions), default=0)
+
     bom_data = {
         "product_id": str(payload.product_id),
-        "version": old["version"] + 1,
+        "version": max_version + 1,
         "is_active": True,
         "notes": payload.notes,
         "created_by": user["id"],
